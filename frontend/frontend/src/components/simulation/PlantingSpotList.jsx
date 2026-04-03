@@ -1,256 +1,132 @@
-// import React, { useEffect, useMemo, useState } from 'react';
-// import { Card, List, Tag, Typography, Spin, Alert } from 'antd';
-// import { findFeatureForZone, generatePlantingPoints } from './geoSimulationUtils';
+import React, { useEffect, useMemo, useRef } from 'react';
+import { Card, Typography, Divider, Row, Col, Statistic, Alert, Tag } from 'antd';
+import { MapContainer, TileLayer, GeoJSON, CircleMarker, Popup } from 'react-leaflet';
 
-// const { Text, Paragraph } = Typography;
+import {
+  findFeatureForZone,
+  getFeatureBounds,
+  getFeatureCenter,
+  generatePlantingPoints,
+  getFeatureDisplayName
+} from './geoSimulationUtils';
 
-// function getSpotLabel(point, allPoints) {
-//   if (!allPoints.length) return 'Candidate Spot';
+const { Text } = Typography;
 
-//   const avgLat = allPoints.reduce((sum, p) => sum + p.lat, 0) / allPoints.length;
-//   const avgLng = allPoints.reduce((sum, p) => sum + p.lng, 0) / allPoints.length;
-
-//   const vertical =
-//     point.lat > avgLat + 0.00005
-//       ? 'North'
-//       : point.lat < avgLat - 0.00005
-//       ? 'South'
-//       : 'Central';
-
-//   const horizontal =
-//     point.lng > avgLng + 0.00005
-//       ? 'East'
-//       : point.lng < avgLng - 0.00005
-//       ? 'West'
-//       : 'Core';
-
-//   if (vertical === 'Central' && horizontal === 'Core') return 'Central Heat Pocket';
-//   if (vertical === 'Central') return `${horizontal} Edge Corridor`;
-//   if (horizontal === 'Core') return `${vertical} Open Patch`;
-
-//   return `${vertical}-${horizontal} Planting Cluster`;
-// }
-
-// function getSpotReason(index) {
-//   const reasons = [
-//     'Low canopy + high exposed built surface',
-//     'Thermal hotspot with strong cooling ROI',
-//     'Feasible open micro-space inside ROI',
-//     'High shade potential near dense built-up edge',
-//     'Suitable spacing for clustered sapling placement'
-//   ];
-
-//   return reasons[index % reasons.length];
-// }
-
-// export default function PlantingSpotList({
-//   selectedZone,
-//   treeCount,
-//   simulated,
-//   isSimulating,
-//   progress
-// }) {
-//   const [geojsonData, setGeojsonData] = useState(null);
-//   const [loadingGeo, setLoadingGeo] = useState(true);
-//   const [geoError, setGeoError] = useState(null);
-
-//   useEffect(() => {
-//     const loadGeo = async () => {
-//       try {
-//         setLoadingGeo(true);
-//         setGeoError(null);
-
-//         const res = await fetch('/zones.geojson');
-//         if (!res.ok) {
-//           throw new Error('Could not load zones.geojson');
-//         }
-
-//         const data = await res.json();
-//         setGeojsonData(data);
-//       } catch (err) {
-//         console.error('GeoJSON load error:', err);
-//         setGeoError(err.message || 'Failed to load GeoJSON');
-//       } finally {
-//         setLoadingGeo(false);
-//       }
-//     };
-
-//     loadGeo();
-//   }, []);
-
-//   const selectedFeature = useMemo(() => {
-//     if (!geojsonData) return null;
-//     return findFeatureForZone(geojsonData, selectedZone);
-//   }, [geojsonData, selectedZone]);
-
-//   const plantingPoints = useMemo(() => {
-//     if (!selectedFeature) return [];
-//     return generatePlantingPoints(selectedFeature, treeCount);
-//   }, [selectedFeature, treeCount]);
-
-//   const visibleCount = Math.max(0, Math.round((plantingPoints.length * progress) / 100));
-//   const visiblePoints =
-//     simulated || isSimulating ? plantingPoints.slice(0, visibleCount) : [];
-
-//   return (
-//     <Card className="eco-card" title="Exact Planting Locations" style={{ marginTop: 16 }}>
-//       {loadingGeo ? (
-//         <div
-//           style={{
-//             minHeight: 100,
-//             display: 'flex',
-//             alignItems: 'center',
-//             justifyContent: 'center'
-//           }}
-//         >
-//           <Spin />
-//         </div>
-//       ) : geoError ? (
-//         <Alert
-//           type="warning"
-//           showIcon
-//           title="GeoJSON unavailable"
-//           description="Unable to load planting spot recommendations."
-//         />
-//       ) : !(simulated || isSimulating) ? (
-//         <Paragraph style={{ marginBottom: 0 }}>
-//           Run the simulation to reveal named AI-suggested planting zones inside the selected polygon.
-//         </Paragraph>
-//       ) : visiblePoints.length === 0 ? (
-//         <Paragraph style={{ marginBottom: 0 }}>
-//           Simulation is starting… planting locations will appear progressively.
-//         </Paragraph>
-//       ) : (
-//         <List
-//           size="small"
-//           dataSource={visiblePoints}
-//           renderItem={(point, index) => {
-//             const label = getSpotLabel(point, plantingPoints);
-//             const reason = getSpotReason(index);
-//             const treesPerSpot = Math.max(2, Math.round(treeCount / Math.max(1, plantingPoints.length)));
-
-//             return (
-//               <List.Item style={{ padding: '10px 0' }}>
-//                 <div style={{ width: '100%' }}>
-//                   <div
-//                     style={{
-//                       display: 'flex',
-//                       justifyContent: 'space-between',
-//                       gap: 8,
-//                       flexWrap: 'wrap'
-//                     }}
-//                   >
-//                     <Text strong>{label}</Text>
-//                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-//                       <Tag color="green">{treesPerSpot} trees</Tag>
-//                       <Tag color="blue">Spot #{index + 1}</Tag>
-//                     </div>
-//                   </div>
-
-//                   <div style={{ marginTop: 4 }}>
-//                     <Text type="secondary">{reason}</Text>
-//                   </div>
-
-//                   <div style={{ marginTop: 4 }}>
-//                     <Text style={{ fontSize: 12 }}>
-//                       Lat: {point.lat.toFixed(5)} | Lng: {point.lng.toFixed(5)}
-//                     </Text>
-//                   </div>
-//                 </div>
-//               </List.Item>
-//             );
-//           }}
-//         />
-//       )}
-//     </Card>
-//   );
-// }
-
-import React, { useEffect, useMemo, useState } from 'react';
-import { Card, List, Tag, Typography, Spin, Alert } from 'antd';
-import { findFeatureForZone, generatePlantingPoints } from './geoSimulationUtils';
-
-const { Text, Paragraph } = Typography;
-
-function getSpotLabel(point, allPoints) {
-  if (!allPoints.length) return 'Candidate Spot';
-
-  const avgLat = allPoints.reduce((sum, p) => sum + p.lat, 0) / allPoints.length;
-  const avgLng = allPoints.reduce((sum, p) => sum + p.lng, 0) / allPoints.length;
-
-  const vertical =
-    point.lat > avgLat + 0.00005
-      ? 'North'
-      : point.lat < avgLat - 0.00005
-      ? 'South'
-      : 'Central';
-
-  const horizontal =
-    point.lng > avgLng + 0.00005
-      ? 'East'
-      : point.lng < avgLng - 0.00005
-      ? 'West'
-      : 'Core';
-
-  if (vertical === 'Central' && horizontal === 'Core') return 'Central Heat Pocket';
-  if (vertical === 'Central') return `${horizontal} Edge Corridor`;
-  if (horizontal === 'Core') return `${vertical} Open Patch`;
-
-  return `${vertical}-${horizontal} Planting Cluster`;
-}
-
-function getSpotReason(index) {
-  const reasons = [
-    'Low canopy + high exposed built surface',
-    'Thermal hotspot with strong cooling ROI',
-    'Feasible open micro-space inside ROI',
-    'High shade potential near dense built-up edge',
-    'Suitable spacing for clustered sapling placement'
-  ];
-
-  return reasons[index % reasons.length];
-}
-
-export default function PlantingSpotList({
-  selectedZone,
-  treeCount,
-  simulated,
-  isSimulating,
-  progress,
-  split // ✅ ADDED
+function SingleMap({
+  title,
+  subtitle,
+  feature,
+  featureCenter,
+  featureBounds,
+  showPoints = false,
+  visiblePoints = [],
+  isAfter = false
 }) {
-  const [geojsonData, setGeojsonData] = useState(null);
-  const [loadingGeo, setLoadingGeo] = useState(true);
-  const [geoError, setGeoError] = useState(null);
+  const mapRef = useRef(null);
 
   useEffect(() => {
-    const loadGeo = async () => {
-      try {
-        setLoadingGeo(true);
-        setGeoError(null);
+    if (mapRef.current && featureBounds) {
+      setTimeout(() => {
+        mapRef.current.fitBounds(featureBounds, {
+          padding: [60, 60],
+          maxZoom: 14
+        });
+      }, 100);
+    }
+  }, [featureBounds]);
 
-        const res = await fetch('/zones.geojson');
-        if (!res.ok) {
-          throw new Error('Could not load zones.geojson');
-        }
+  const zoneStyle = {
+    color: isAfter ? '#16a34a' : '#f97316',
+    weight: 3,
+    fillColor: isAfter ? '#22c55e' : '#fb923c',
+    fillOpacity: isAfter ? 0.18 : 0.12
+  };
 
-        const data = await res.json();
-        setGeojsonData(data);
-      } catch (err) {
-        console.error('GeoJSON load error:', err);
-        setGeoError(err.message || 'Failed to load GeoJSON');
-      } finally {
-        setLoadingGeo(false);
-      }
-    };
+  return (
+    <div>
+      <div style={{ marginBottom: 10 }}>
+        <Text strong>{title}</Text>
+        <br />
+        <Text type="secondary">{subtitle}</Text>
+      </div>
 
-    loadGeo();
-  }, []);
+      <div
+        style={{
+          height: 300,
+          minHeight: 300,
+          borderRadius: 16,
+          overflow: 'hidden',
+          border: '1px solid #cbd5e1'
+        }}
+      >
+        <MapContainer
+          center={featureCenter}
+          zoom={13}
+          style={{ height: '100%', width: '100%' }}
+          ref={mapRef}
+          scrollWheelZoom={false}
+          doubleClickZoom={false}
+          dragging={true}
+          zoomControl={false}
+        >
+          <TileLayer
+            attribution='&copy; OpenStreetMap contributors'
+            url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+          />
 
+          <GeoJSON data={feature} style={() => zoneStyle} />
+
+          {showPoints &&
+            visiblePoints.map((pt, idx) => (
+              <CircleMarker
+                key={pt.id}
+                center={[pt.lat, pt.lng]}
+                radius={6 + ((idx % 3) * 1.5)}
+                pathOptions={{
+                  color: '#166534',
+                  fillColor: '#22c55e',
+                  fillOpacity: 0.9,
+                  weight: 2
+                }}
+              >
+                <Popup>
+                  <div>
+                    <strong>AI Planting Spot #{idx + 1}</strong>
+                    <br />
+                    Candidate micro-intervention point
+                  </div>
+                </Popup>
+              </CircleMarker>
+            ))}
+        </MapContainer>
+      </div>
+    </div>
+  );
+}
+
+export default function BeforeAfterGeoMaps({
+  geoData,
+  selectedZone,
+  simulated,
+  isSimulating,
+  timeHorizon,
+  progress,
+  treeCount
+}) {
   const selectedFeature = useMemo(() => {
-    if (!geojsonData) return null;
-    return findFeatureForZone(geojsonData, selectedZone);
-  }, [geojsonData, selectedZone]);
+    if (!geoData) return null;
+    return findFeatureForZone(geoData, selectedZone);
+  }, [geoData, selectedZone]);
+
+  const featureBounds = useMemo(() => {
+    if (!selectedFeature) return null;
+    return getFeatureBounds(selectedFeature);
+  }, [selectedFeature]);
+
+  const featureCenter = useMemo(() => {
+    if (!selectedFeature) return [18.5204, 73.8567];
+    return getFeatureCenter(selectedFeature);
+  }, [selectedFeature]);
 
   const plantingPoints = useMemo(() => {
     if (!selectedFeature) return [];
@@ -258,89 +134,106 @@ export default function PlantingSpotList({
   }, [selectedFeature, treeCount]);
 
   const visibleCount = Math.max(0, Math.round((plantingPoints.length * progress) / 100));
-  const visiblePoints =
-    simulated || isSimulating ? plantingPoints.slice(0, visibleCount) : [];
+  const visiblePoints = plantingPoints.slice(0, visibleCount);
 
-  // ✅ ADDED SPLIT LOGIC
-  const half = Math.ceil(visiblePoints.length / 2);
-  const displayPoints =
-    split === 'left'
-      ? visiblePoints.slice(0, half)
-      : split === 'right'
-      ? visiblePoints.slice(half)
-      : visiblePoints;
+  const matchedFeatureName = useMemo(() => {
+    if (!selectedFeature || !geoData?.features) return 'Selected Zone';
+    const index = geoData.features.findIndex((f) => f === selectedFeature);
+    return getFeatureDisplayName(selectedFeature, index);
+  }, [selectedFeature, geoData]);
+
+  const showAfterPanel = isSimulating || simulated;
 
   return (
-    <Card className="eco-card" title="Exact Planting Locations" style={{ marginTop: 16 }}>
-      {loadingGeo ? (
-        <div
-          style={{
-            minHeight: 100,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}
-        >
-          <Spin />
+    <Card
+      className="eco-card"
+      title={showAfterPanel ? 'Before vs After Geo Simulation' : 'Current Zone (Before Simulation)'}
+    >
+      <div
+        style={{
+          background: 'linear-gradient(180deg, #eff6ff 0%, #f0fdf4 100%)',
+          borderRadius: 18,
+          padding: 16,
+          border: '1px solid #dbeafe'
+        }}
+      >
+        <div style={{ marginBottom: 12 }}>
+          <Text strong>{selectedZone.zone_name}</Text>
+          <br />
+          <Text type="secondary">
+            {showAfterPanel
+              ? 'Compare the current polygon ROI with the projected post-planting scenario.'
+              : 'Current baseline ROI before any planting intervention.'}
+          </Text>
+          <div style={{ marginTop: 8 }}>
+            <Tag color="blue">GeoJSON ROI: {matchedFeatureName}</Tag>
+          </div>
         </div>
-      ) : geoError ? (
-        <Alert
-          type="warning"
-          showIcon
-          title="GeoJSON unavailable"
-          description="Unable to load planting spot recommendations."
-        />
-      ) : !(simulated || isSimulating) ? (
-        <Paragraph style={{ marginBottom: 0 }}>
-          Run the simulation to reveal named AI-suggested planting zones inside the selected polygon.
-        </Paragraph>
-      ) : displayPoints.length === 0 ? (
-        <Paragraph style={{ marginBottom: 0 }}>
-          Simulation is starting… planting locations will appear progressively.
-        </Paragraph>
-      ) : (
-        <List
-          size="small"
-          dataSource={displayPoints} // ✅ CHANGED
-          renderItem={(point, index) => {
-            const label = getSpotLabel(point, plantingPoints);
-            const reason = getSpotReason(index);
-            const treesPerSpot = Math.max(2, Math.round(treeCount / Math.max(1, plantingPoints.length)));
 
-            return (
-              <List.Item style={{ padding: '10px 0' }}>
-                <div style={{ width: '100%' }}>
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      gap: 8,
-                      flexWrap: 'wrap'
-                    }}
-                  >
-                    <Text strong>{label}</Text>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      <Tag color="green">{treesPerSpot} trees</Tag>
-                      <Tag color="blue">Spot #{index + 1}</Tag>
-                    </div>
-                  </div>
+        {!geoData ? (
+          <Alert
+            type="warning"
+            showIcon
+            message="GeoJSON not available"
+            description="City GeoJSON could not be loaded for this simulation."
+          />
+        ) : !selectedFeature ? (
+          <Alert
+            type="warning"
+            showIcon
+            message="No polygon available"
+            description="No valid polygon could be matched for the selected zone."
+          />
+        ) : (
+          <Row gutter={[16, 16]}>
+            <Col xs={24} md={showAfterPanel ? 12 : 24}>
+              <SingleMap
+                title="Before Intervention"
+                subtitle="Current ROI condition"
+                feature={selectedFeature}
+                featureCenter={featureCenter}
+                featureBounds={featureBounds}
+                showPoints={false}
+                visiblePoints={[]}
+                isAfter={false}
+              />
+            </Col>
 
-                  <div style={{ marginTop: 4 }}>
-                    <Text type="secondary">{reason}</Text>
-                  </div>
+            {showAfterPanel && (
+              <Col xs={24} md={12}>
+                <SingleMap
+                  title="After Intervention"
+                  subtitle={`Projected ${timeHorizon}-month planting scenario`}
+                  feature={selectedFeature}
+                  featureCenter={featureCenter}
+                  featureBounds={featureBounds}
+                  showPoints={true}
+                  visiblePoints={visiblePoints}
+                  isAfter={true}
+                />
+              </Col>
+            )}
+          </Row>
+        )}
 
-                  <div style={{ marginTop: 4 }}>
-                    <Text style={{ fontSize: 12 }}>
-                      Lat: {point.lat.toFixed(5)} | Lng: {point.lng.toFixed(5)}
-                    </Text>
-                  </div>
-                </div>
-              </List.Item>
-            );
-          }}
-        />
-      )}
+        <Divider />
+
+        <Row gutter={12}>
+          <Col xs={8}>
+            <Statistic title="Candidate Spots" value={showAfterPanel ? plantingPoints.length : 0} />
+          </Col>
+          <Col xs={8}>
+            <Statistic
+              title="Visible Trees (After)"
+              value={showAfterPanel ? visibleCount : 0}
+              suffix={showAfterPanel ? `/ ${plantingPoints.length}` : ''}
+            />
+          </Col>
+          <Col xs={8}>
+            <Statistic title="Simulation Progress" value={showAfterPanel ? progress : 0} suffix="%" />
+          </Col>
+        </Row>
+      </div>
     </Card>
   );
 }
-

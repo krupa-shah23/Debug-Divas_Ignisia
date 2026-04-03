@@ -1,111 +1,239 @@
-import React from 'react';
-import { Card, Typography, Select, Slider, Button, Tag, Radio, Progress } from 'antd';
+import React, { useEffect, useMemo, useRef } from 'react';
+import { Card, Typography, Divider, Row, Col, Statistic, Alert, Tag } from 'antd';
+import { MapContainer, TileLayer, GeoJSON, CircleMarker, Popup } from 'react-leaflet';
+
+import {
+  findFeatureForZone,
+  getFeatureBounds,
+  getFeatureCenter,
+  generatePlantingPoints,
+  getFeatureDisplayName
+} from './geoSimulationUtils';
 
 const { Text } = Typography;
-const { Option } = Select;
 
-export default function SimulationControls({
-  mockZones,
-  selectedZoneId,
-  handleZoneChange,
-  treeType,
-  setTreeType,
-  timeHorizon,
-  setTimeHorizon,
-  treeCount,
-  setTreeCount,
-  selectedZone,
-  profile,
-  runSimulation,
-  isSimulating,
-  progress,
-  setProgress,
-  setSimulated
+function SingleMap({
+  title,
+  subtitle,
+  feature,
+  featureCenter,
+  featureBounds,
+  showPoints = false,
+  visiblePoints = [],
+  isAfter = false
 }) {
+  const mapRef = useRef(null);
+
+  useEffect(() => {
+    if (mapRef.current && featureBounds) {
+      setTimeout(() => {
+        mapRef.current.fitBounds(featureBounds, {
+          padding: [60, 60],
+          maxZoom: 14
+        });
+      }, 100);
+    }
+  }, [featureBounds]);
+
+  const zoneStyle = {
+    color: isAfter ? '#16a34a' : '#f97316',
+    weight: 3,
+    fillColor: isAfter ? '#22c55e' : '#fb923c',
+    fillOpacity: isAfter ? 0.18 : 0.12
+  };
+
   return (
-    <Card className="eco-card" title="Simulation Controls" style={{ marginBottom: 16 }}>
-      <div style={{ marginBottom: 18 }}>
-        <Text strong>Select Zone</Text>
-        <Select
-          value={selectedZoneId}
-          onChange={handleZoneChange}
-          style={{ width: '100%', marginTop: 8 }}
+    <div>
+      <div style={{ marginBottom: 10 }}>
+        <Text strong>{title}</Text>
+        <br />
+        <Text type="secondary">{subtitle}</Text>
+      </div>
+
+      <div
+        style={{
+          height: 300,
+          minHeight: 300,
+          borderRadius: 16,
+          overflow: 'hidden',
+          border: '1px solid #cbd5e1'
+        }}
+      >
+        <MapContainer
+          center={featureCenter}
+          zoom={13}
+          style={{ height: '100%', width: '100%' }}
+          ref={mapRef}
+          scrollWheelZoom={false}
+          doubleClickZoom={false}
+          dragging={true}
+          zoomControl={false}
         >
-          {mockZones.map((zone) => (
-            <Option key={zone.zone_id} value={zone.zone_id}>
-              {zone.zone_name}
-            </Option>
-          ))}
-        </Select>
+          <TileLayer
+            attribution='&copy; OpenStreetMap contributors'
+            url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+          />
+
+          <GeoJSON data={feature} style={() => zoneStyle} />
+
+          {showPoints &&
+            visiblePoints.map((pt, idx) => (
+              <CircleMarker
+                key={pt.id}
+                center={[pt.lat, pt.lng]}
+                radius={6 + ((idx % 3) * 1.5)}
+                pathOptions={{
+                  color: '#166534',
+                  fillColor: '#22c55e',
+                  fillOpacity: 0.9,
+                  weight: 2
+                }}
+              >
+                <Popup>
+                  <div>
+                    <strong>AI Planting Spot #{idx + 1}</strong>
+                    <br />
+                    Candidate micro-intervention point
+                  </div>
+                </Popup>
+              </CircleMarker>
+            ))}
+        </MapContainer>
       </div>
+    </div>
+  );
+}
 
-      <div style={{ marginBottom: 18 }}>
-        <Text strong>Tree Type</Text>
-        <Radio.Group
-          value={treeType}
-          onChange={(e) => {
-            setTreeType(e.target.value);
-            setProgress(0);
-            setSimulated(false);
-          }}
-          style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}
-        >
-          <Radio value="native">Native Shade Tree</Radio>
-          <Radio value="fast">Fast-Growth Urban Tree</Radio>
-          <Radio value="drought">Drought-Resilient Species</Radio>
-        </Radio.Group>
-      </div>
+export default function BeforeAfterGeoMaps({
+  geoData,
+  selectedZone,
+  simulated,
+  isSimulating,
+  timeHorizon,
+  progress,
+  treeCount
+}) {
+  const selectedFeature = useMemo(() => {
+    if (!geoData) return null;
+    return findFeatureForZone(geoData, selectedZone);
+  }, [geoData, selectedZone]);
 
-      <div style={{ marginBottom: 18 }}>
-        <Text strong>Time Horizon: {timeHorizon} months</Text>
-        <Slider
-          min={6}
-          max={24}
-          step={6}
-          marks={{ 6: '6', 12: '12', 18: '18', 24: '24' }}
-          value={timeHorizon}
-          onChange={(value) => {
-            setTimeHorizon(value);
-            setProgress(0);
-            setSimulated(false);
-          }}
-        />
-      </div>
+  const featureBounds = useMemo(() => {
+    if (!selectedFeature) return null;
+    return getFeatureBounds(selectedFeature);
+  }, [selectedFeature]);
 
-      <div style={{ marginBottom: 18 }}>
-        <Text strong>Tree Count: {treeCount}</Text>
-        <Slider
-          min={10}
-          max={80}
-          step={5}
-          value={treeCount}
-          onChange={(value) => {
-            setTreeCount(value);
-            setProgress(0);
-            setSimulated(false);
-          }}
-        />
-      </div>
+  const featureCenter = useMemo(() => {
+    if (!selectedFeature) return [18.5204, 73.8567];
+    return getFeatureCenter(selectedFeature);
+  }, [selectedFeature]);
 
-      <div style={{ marginBottom: 16 }}>
-        <Tag color={selectedZone.water_access ? 'green' : 'red'}>
-          {selectedZone.water_access ? 'Water Access Available' : 'Water Constrained Zone'}
-        </Tag>
-        <Tag color={profile.color}>{profile.label}</Tag>
-        <Tag color="purple">Water Need: {profile.waterNeed}</Tag>
-      </div>
+  const plantingPoints = useMemo(() => {
+    if (!selectedFeature) return [];
+    return generatePlantingPoints(selectedFeature, treeCount);
+  }, [selectedFeature, treeCount]);
 
-      <Button type="primary" size="large" block onClick={runSimulation} loading={isSimulating}>
-        {isSimulating ? 'Running Simulation...' : 'Run Simulation'}
-      </Button>
+  const visibleCount = Math.max(0, Math.round((plantingPoints.length * progress) / 100));
+  const visiblePoints = plantingPoints.slice(0, visibleCount);
 
-      <div style={{ marginTop: 16 }}>
-        <Progress
-          percent={progress}
-          status={isSimulating ? 'active' : progress === 100 ? 'success' : 'normal'}
-        />
+  const matchedFeatureName = useMemo(() => {
+    if (!selectedFeature || !geoData?.features) return 'Selected Zone';
+    const index = geoData.features.findIndex((f) => f === selectedFeature);
+    return getFeatureDisplayName(selectedFeature, index);
+  }, [selectedFeature, geoData]);
+
+  const showAfterPanel = isSimulating || simulated;
+
+  return (
+    <Card
+      className="eco-card"
+      title={showAfterPanel ? 'Before vs After Geo Simulation' : 'Current Zone (Before Simulation)'}
+    >
+      <div
+        style={{
+          background: 'linear-gradient(180deg, #eff6ff 0%, #f0fdf4 100%)',
+          borderRadius: 18,
+          padding: 16,
+          border: '1px solid #dbeafe'
+        }}
+      >
+        <div style={{ marginBottom: 12 }}>
+          <Text strong>{selectedZone.zone_name}</Text>
+          <br />
+          <Text type="secondary">
+            {showAfterPanel
+              ? 'Compare the current polygon ROI with the projected post-planting scenario.'
+              : 'Current baseline ROI before any planting intervention.'}
+          </Text>
+          <div style={{ marginTop: 8 }}>
+            <Tag color="blue">GeoJSON ROI: {matchedFeatureName}</Tag>
+          </div>
+        </div>
+
+        {!geoData ? (
+          <Alert
+            type="warning"
+            showIcon
+            message="GeoJSON not available"
+            description="City GeoJSON could not be loaded for this simulation."
+          />
+        ) : !selectedFeature ? (
+          <Alert
+            type="warning"
+            showIcon
+            message="No polygon available"
+            description="No valid polygon could be matched for the selected zone."
+          />
+        ) : (
+          <Row gutter={[16, 16]}>
+            <Col xs={24} md={showAfterPanel ? 12 : 24}>
+              <SingleMap
+                title="Before Intervention"
+                subtitle="Current ROI condition"
+                feature={selectedFeature}
+                featureCenter={featureCenter}
+                featureBounds={featureBounds}
+                showPoints={false}
+                visiblePoints={[]}
+                isAfter={false}
+              />
+            </Col>
+
+            {showAfterPanel && (
+              <Col xs={24} md={12}>
+                <SingleMap
+                  title="After Intervention"
+                  subtitle={`Projected ${timeHorizon}-month planting scenario`}
+                  feature={selectedFeature}
+                  featureCenter={featureCenter}
+                  featureBounds={featureBounds}
+                  showPoints={true}
+                  visiblePoints={visiblePoints}
+                  isAfter={true}
+                />
+              </Col>
+            )}
+          </Row>
+        )}
+
+        <Divider />
+
+        <Row gutter={12}>
+          <Col xs={8}>
+            <Statistic title="Candidate Spots" value={showAfterPanel ? plantingPoints.length : 0} />
+          </Col>
+          <Col xs={8}>
+            <Statistic
+              title="Visible Trees (After)"
+              value={showAfterPanel ? visibleCount : 0}
+              suffix={showAfterPanel ? `/ ${plantingPoints.length}` : ''}
+            />
+          </Col>
+          <Col xs={8}>
+            <Statistic title="Simulation Progress" value={showAfterPanel ? progress : 0} suffix="%" />
+          </Col>
+        </Row>
       </div>
     </Card>
   );
 }
-
