@@ -18,7 +18,7 @@ df["ndbi_n"] = normalize(df["NDBI"])
 df["ndwi_n"] = normalize(df["NDWI"])
 
 # ==========================
-# 🌿 TREE CLASSIFICATION
+# TREE CLASSIFICATION
 # ==========================
 df["tree_category"] = pd.cut(
     df["NDVI"],
@@ -27,7 +27,7 @@ df["tree_category"] = pd.cut(
 )
 
 # ==========================
-# 🧠 SOCIOECONOMIC FACTOR (MOCK)
+# SOCIOECONOMIC FACTOR (MOCK)
 # ==========================
 # Lower value = worse (higher priority)
 np.random.seed(42)
@@ -35,7 +35,7 @@ df["income_score"] = np.random.uniform(0, 1, len(df))
 df["income_n"] = 1 - df["income_score"]  # lower income = higher priority
 
 # ==========================
-# 📊 IMPACT SCORE
+# IMPACT SCORE
 # ==========================
 df["priority_score"] = (
     (1 - df["ndvi_n"]) * 0.30 +   # low greenery
@@ -46,7 +46,7 @@ df["priority_score"] = (
 )
 
 # ==========================
-# 🚰 WATER CONSTRAINT
+# WATER CONSTRAINT
 # ==========================
 # Only allow zones with enough water
 df["water_ok"] = df["NDWI"] > df["NDWI"].median()
@@ -54,12 +54,12 @@ df["water_ok"] = df["NDWI"] > df["NDWI"].median()
 df_filtered = df[df["water_ok"] == True]
 
 # ==========================
-# 🎯 PRIORITIZATION
+# PRIORITIZATION
 # ==========================
 df_filtered = df_filtered.sort_values(by="priority_score", ascending=False)
 
 # ==========================
-# 💰 BUDGET CONSTRAINT
+# BUDGET CONSTRAINT
 # ==========================
 # Assume each zone = 10 trees
 TOTAL_TREES = 100
@@ -70,7 +70,7 @@ max_zones = TOTAL_TREES // TREES_PER_ZONE
 selected_zones = df_filtered.head(max_zones)
 
 # ==========================
-# 🧾 EXPLAINABILITY
+# EXPLAINABILITY
 # ==========================
 def explain(row):
     reasons = []
@@ -90,7 +90,7 @@ df_filtered["reason"] = df_filtered.apply(explain, axis=1)
 selected_zones["reason"] = selected_zones.apply(explain, axis=1)
 
 # ==========================
-# 💾 SAVE OUTPUTS
+# SAVE OUTPUTS
 # ==========================
 df.to_csv("../data/final_scored.csv", index=False)
 df_filtered.to_csv("../data/filtered_zones.csv", index=False)

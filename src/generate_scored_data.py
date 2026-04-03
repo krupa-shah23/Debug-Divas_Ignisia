@@ -1,115 +1,137 @@
 import pandas as pd
-import random
 import os
 
-print("""
-PIPELINE:
-Input → Zones
-       → Feature Generation (NDVI, LST, etc.)
-       → Impact Scoring
-       → Water Constraint Filtering
-       → Budget Optimization
-       → Output Selected Zones
-""")
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-cities = [
-    "delhi", "mumbai", "kolkata", "bangalore", "chennai",
-    "hyderabad", "ahmedabad", "pune", "surat", "jaipur",
-    "lucknow", "kanpur", "nagpur", "indore", "vadodara"
-]
 
-def generate_features(city):
-    path = f"data/processed/zones_{city}.csv"
+def generate_features(city, budget):
 
-    if not os.path.exists(path):
-        print(f"Missing zones for {city}")
-        return
+    print(f"\n===== SCORING: {city.upper()} | Budget: {budget} =====")
 
-    df = pd.read_csv(path)
+    # ==========================
+    # LOAD REAL FEATURES
+    # ==========================
+    features_path = os.path.join(BASE_DIR, "data", "processed_csv", f"{city}_features.csv")
 
-    rows = []
+    if not os.path.exists(features_path):
+        print(f"[ERROR] Missing features for {city}")
+        return None
 
-    for _, row in df.iterrows():
+    df = pd.read_csv(features_path)
 
-        if city in ["delhi", "kanpur"]:
-            ndvi = random.uniform(0.1, 0.4)
-            lst = random.uniform(300, 320)
-        elif city in ["bangalore", "pune"]:
-            ndvi = random.uniform(0.3, 0.7)
-            lst = random.uniform(290, 305)
-        else:
-            ndvi = random.uniform(0.2, 0.6)
-            lst = random.uniform(295, 315)
+    if df.empty:
+        print(f"[ERROR] Empty features file for {city}")
+        return None
 
-        ndbi = random.uniform(0.3, 0.8)
-        ndwi = random.uniform(0.1, 0.5)
-        income = random.uniform(0.2, 0.9)
+    print(f"[DEBUG] Loaded {len(df)} feature rows")
 
-        tree_cover = 1 if ndvi > 0.3 else 0
-        water_available = random.choice([0, 1])
+    # ==========================
+    # NORMALIZATION FUNCTION
+    # ==========================
+    def normalize(series):
+        min_val = series.min()
+        max_val = series.max()
 
-        impact = (
-            (1 - ndvi) * 0.4 +
-            (lst / 320) * 0.3 +
-            ndbi * 0.2 +
-            (1 - income) * 0.1
-        )
+        if max_val - min_val == 0:
+            return pd.Series([0.5] * len(series))  # neutral fallback
 
-        if ndvi < 0.3 and lst > 305:
-            reason = "High heat + low greenery"
-        elif ndbi > 0.6:
-            reason = "Dense built-up area"
-        else:
-            reason = "Moderate priority zone"
+        return (series - min_val) / (max_val - min_val)
 
-        rows.append({
-            "zone_id": row["zone_id"],
-            "NDVI": round(ndvi, 2),
-            "LST": round(lst, 2),
-            "NDBI": round(ndbi, 2),
-            "NDWI": round(ndwi, 2),
-            "tree_cover": tree_cover,
-            "water_available": water_available,
-            "impact_score": round(impact, 2),
-            "cost": random.randint(80, 150),
-            "reason": reason,
-            "coordinates": row["coordinates"]
-        })
+    # ==========================
+    # ENSURE REQUIRED COLUMNS
+    # ==========================
+    required_cols = ["NDVI", "LST", "NDBI", "NDWI"]
+    for col in required_cols:
+        if col not in df.columns:
+            print(f"[ERROR] Missing column: {col}")
+            return None
 
-    df = pd.DataFrame(rows)
+    # ==========================
+    # HANDLE INCOME (NEW)
+    # ==========================
+    if "income" not in df.columns:
+        print("[WARNING] Income data missing → using neutral values")
+        df["income"] = df["NDVI"].mean()  # dummy fallback (replace later with real data)
 
-    # Water constraint
-    df = df[df["water_available"] == 1]
+    # ==========================
+    # NORMALIZE FEATURES
+    # ==========================
+    df["ndvi_n"] = normalize(df["NDVI"])
+    df["lst_n"]  = normalize(df["LST"])
+    df["ndbi_n"] = normalize(df["NDBI"])
+    df["ndwi_n"] = normalize(df["NDWI"])
+    df["income_n"] = normalize(df["income"])
 
-    # Sort by impact
-    df = df.sort_values(by="impact_score", ascending=False)
+    # ==========================
+    # WATER CONSTRAINT
+    # ==========================
+    df["water_available"] = df["NDWI"] > df["NDWI"].median()
 
-    # Budget selection
-    budget = 500
+    df_filtered = df[df["water_available"] == True].copy()
+
+    if df_filtered.empty:
+        print("[WARNING] Water filter removed all → fallback to full dataset")
+        df_filtered = df.copy()
+
+    # ==========================
+    # IMPACT SCORE (UPDATED)
+    # ==========================
+    df_filtered["impact_score"] = (
+        (1 - df_filtered["ndvi_n"]) * 0.30 +   # low tree cover priority
+        df_filtered["lst_n"] * 0.20 +          # heat intensity
+        df_filtered["ndbi_n"] * 0.15 +         # built-up density
+        (1 - df_filtered["ndwi_n"]) * 0.10 +   # low water access
+        (1 - df_filtered["income_n"]) * 0.25   # low income priority
+    )
+
+    # ==========================
+    # COST (SYNTHETIC)
+    # ==========================
+    df_filtered["cost"] = 80 + (df_filtered["ndbi_n"] * 70)
+
+    # ==========================
+    # EFFICIENCY SORT
+    # ==========================
+    df_filtered["efficiency"] = df_filtered["impact_score"] / df_filtered["cost"]
+    df_filtered = df_filtered.sort_values(by="efficiency", ascending=False)
+
+    # ==========================
+    # BUDGET SELECTION (GREEDY)
+    # ==========================
     total_cost = 0
-    selected_zones = []
+    selected = []
 
-    for _, row in df.iterrows():
+    for _, row in df_filtered.iterrows():
         if total_cost + row["cost"] <= budget:
-            selected_zones.append(row["zone_id"])
+            selected.append(row["zone_id"])
             total_cost += row["cost"]
 
-    df["selected"] = df["zone_id"].isin(selected_zones)
+    df_filtered["selected"] = df_filtered["zone_id"].isin(selected)
 
-    df.to_csv(f"data/processed/scored_zones_{city}.csv", index=False)
+    print(f"[DEBUG] Selected zones: {len(selected)} | Cost used: {round(total_cost, 2)}")
 
-    print(f"\nDEMO SCENARIO — {city.upper()}")
-    print(f"Budget: {budget}")
-    print(f"Selected Zones: {selected_zones}")
-    print(f"Total Cost Used: {total_cost}")
+    # ==========================
+    # SAVE OUTPUT
+    # ==========================
+    output_path = os.path.join(BASE_DIR, "data", "processed", f"scored_zones_{city}.csv")
+    df_filtered.to_csv(output_path, index=False)
+
+    print(f"[SUCCESS] Saved: {output_path}")
+
+    return df_filtered
 
 
-for city in cities:
-    generate_features(city)
+if __name__ == "__main__":
 
-print("""
-SYSTEM FEASIBILITY:
-- Uses precomputed satellite-like features
-- Scalable to real satellite data via Google Earth Engine
-- Designed for city-level planning decisions
-""")
+    USER_BUDGET = int(input("Enter budget: "))
+
+    cities = [
+        "delhi", "mumbai", "kolkata", "bangalore", "chennai",
+        "hyderabad", "ahmedabad", "pune", "surat", "jaipur",
+        "lucknow", "kanpur", "nagpur", "indore", "vadodara"
+    ]
+
+    for city in cities:
+        generate_features(city, USER_BUDGET)
+
+    print("\nSCORING COMPLETE")
