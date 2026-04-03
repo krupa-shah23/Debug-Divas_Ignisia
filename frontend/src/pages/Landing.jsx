@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Row, Col, Typography, Card } from 'antd';
 import { EnvironmentOutlined, GlobalOutlined, RightOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
+import WalkingPeople from "../components/WalkingPeople"; // 👈 ADD THIS AT TOP
 
 const { Title, Paragraph } = Typography;
 
@@ -15,7 +16,7 @@ export default function Landing() {
     setTimeout(() => setShowButton(true), 2000); // after paragraph
 }, []);
   return (
-    <div style={{ padding: '40px 0' }}>
+    <div className="home-page" style={{ padding: '40px 0' }}>
       <div style={{
         background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
         borderRadius: '24px',
@@ -51,26 +52,42 @@ export default function Landing() {
 )}
       </div>
 
-      <Row gutter={[32, 32]}>
-        <Col xs={24} md={12}>
-          <div className="eco-card" style={{ height: '100%', cursor: 'pointer' }}>
-            <Title level={3}><GlobalOutlined style={{ color: '#d73027' }} /> The Problem</Title>
-            <Paragraph style={{ fontSize: '1.1rem' }}>
-              Urban heat islands and unequal tree canopy coverage disproportionately affect vulnerable populations. 
-              Rising temperatures and dropping vegetative indices directly impact health, biodiversity, and quality of life across our cities.
-            </Paragraph>
-          </div>
-        </Col>
-        <Col xs={24} md={12}>
-          <div className="eco-card" style={{ height: '100%', cursor: 'pointer' }}>
-            <Title level={3}><EnvironmentOutlined style={{ color: 'var(--secondary)' }} /> The Solution</Title>
-            <Paragraph style={{ fontSize: '1.1rem' }}>
-              Our geospatial optimization engine allocates limited resources (trees) to maximize environmental impact. 
-              By focusing on high Land Surface Temperature (LST) and low vegetative cover, we maximize return on climate investments.
-            </Paragraph>
-          </div>
-        </Col>
-      </Row>
+      <Row align="middle" gutter={[32, 32]}>
+
+  {/* PROBLEM */}
+  <Col xs={24} md={10}>
+    <div className="eco-card" style={{ height: '100%', cursor: 'pointer' }}>
+      <Title level={3}>
+        <GlobalOutlined style={{ color: '#d73027' }} /> The Problem
+      </Title>
+      <Paragraph style={{ fontSize: '1.1rem' }}>
+        Urban heat islands and unequal tree canopy coverage disproportionately affect vulnerable populations. 
+        Rising temperatures and dropping vegetative indices directly impact health, biodiversity, and quality of life across our cities.
+      </Paragraph>
+    </div>
+  </Col>
+
+  {/* 🔥 ANIMATION */}
+  <Col xs={24} md={4}>
+    <div className="walking-bridge">
+      <WalkingPeople />
+    </div>
+  </Col>
+
+  {/* SOLUTION */}
+  <Col xs={24} md={10}>
+    <div className="eco-card" style={{ height: '100%', cursor: 'pointer' }}>
+      <Title level={3}>
+        <EnvironmentOutlined style={{ color: 'var(--secondary)' }} /> The Solution
+      </Title>
+      <Paragraph style={{ fontSize: '1.1rem' }}>
+        Our geospatial optimization engine allocates limited resources (trees) to maximize environmental impact. 
+        By focusing on high Land Surface Temperature (LST) and low vegetative cover, we maximize return on climate investments.
+      </Paragraph>
+    </div>
+  </Col>
+
+</Row>
     </div>
   );
 }

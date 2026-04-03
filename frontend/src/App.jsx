@@ -6,10 +6,7 @@ import Landing from './pages/Landing';
 import Dashboard from './pages/Dashboard';
 import Analytics from './pages/Analytics';
 import Optimization from './pages/Optimization';
-import Explainability from './pages/Explainability';
 import Simulation from './pages/Simulation';
-import Methodology from './pages/Methodology';
-import Architecture from './pages/Architecture';
 
 const { Content } = Layout;
 
@@ -24,10 +21,7 @@ function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/optimization" element={<Optimization />} />
-            <Route path="/explainability" element={<Explainability />} />
             <Route path="/simulation" element={<Simulation />} />
-            <Route path="/methodology" element={<Methodology />} />
-            <Route path="/architecture" element={<Architecture />} />
           </Routes>
         </Content>
       </Layout>
