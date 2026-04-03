@@ -1,0 +1,525 @@
+// import React, { useEffect, useMemo, useRef, useState } from 'react';
+// import { Card, Typography, Divider, Row, Col, Statistic, Spin, Alert, Tag } from 'antd';
+// import { MapContainer, TileLayer, GeoJSON, CircleMarker, Popup } from 'react-leaflet';
+
+// import {
+//   findFeatureForZone,
+//   getFeatureBounds,
+//   getFeatureCenter,
+//   generatePlantingPoints,
+//   getFeatureDisplayName
+// } from './geoSimulationUtils';
+
+// const { Text } = Typography;
+
+// function SingleMap({
+//   title,
+//   subtitle,
+//   feature,
+//   featureCenter,
+//   featureBounds,
+//   showPoints = false,
+//   visiblePoints = [],
+//   isAfter = false
+// }) {
+//   const mapRef = useRef(null);
+
+//   useEffect(() => {
+//     if (mapRef.current && featureBounds) {
+//       setTimeout(() => {
+//         mapRef.current.fitBounds(featureBounds, { padding: [20, 20] });
+//       }, 100);
+//     }
+//   }, [featureBounds]);
+
+//   const zoneStyle = {
+//     color: isAfter ? '#16a34a' : '#f97316',
+//     weight: 3,
+//     fillColor: isAfter ? '#22c55e' : '#fb923c',
+//     fillOpacity: isAfter ? 0.18 : 0.12
+//   };
+
+//   return (
+//     <div>
+//       <div style={{ marginBottom: 10 }}>
+//         <Text strong>{title}</Text>
+//         <br />
+//         <Text type="secondary">{subtitle}</Text>
+//       </div>
+
+//       <div
+//         style={{
+//           height: 300,
+//           minHeight: 300,
+//           borderRadius: 16,
+//           overflow: 'hidden',
+//           border: '1px solid #cbd5e1'
+//         }}
+//       >
+//         <MapContainer
+//           center={featureCenter}
+//           zoom={16}
+//           style={{ height: '100%', width: '100%' }}
+//           ref={mapRef}
+//           scrollWheelZoom={false}
+//           doubleClickZoom={false}
+//           dragging={true}
+//           zoomControl={false}
+//         >
+//           <TileLayer
+//             attribution='&copy; OpenStreetMap contributors'
+//             url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+//           />
+
+//           <GeoJSON data={feature} style={() => zoneStyle} />
+
+//           {showPoints &&
+//             visiblePoints.map((pt, idx) => (
+//               <CircleMarker
+//                 key={pt.id}
+//                 center={[pt.lat, pt.lng]}
+//                 radius={6 + ((idx % 3) * 1.5)}
+//                 pathOptions={{
+//                   color: '#166534',
+//                   fillColor: '#22c55e',
+//                   fillOpacity: 0.9,
+//                   weight: 2
+//                 }}
+//               >
+//                 <Popup>
+//                   <div>
+//                     <strong>AI Planting Spot #{idx + 1}</strong>
+//                     <br />
+//                     Candidate micro-intervention point
+//                   </div>
+//                 </Popup>
+//               </CircleMarker>
+//             ))}
+//         </MapContainer>
+//       </div>
+//     </div>
+//   );
+// }
+
+// export default function BeforeAfterGeoMaps({
+//   selectedZone,
+//   simulated,
+//   isSimulating,
+//   timeHorizon,
+//   progress,
+//   treeCount
+// }) {
+//   const [geojsonData, setGeojsonData] = useState(null);
+//   const [loadingGeo, setLoadingGeo] = useState(true);
+//   const [geoError, setGeoError] = useState(null);
+
+//   useEffect(() => {
+//     const loadGeo = async () => {
+//       try {
+//         setLoadingGeo(true);
+//         setGeoError(null);
+
+//         const res = await fetch('/zones.geojson');
+//         if (!res.ok) {
+//           throw new Error('Could not load zones.geojson');
+//         }
+
+//         const data = await res.json();
+//         setGeojsonData(data);
+//       } catch (err) {
+//         console.error('GeoJSON load error:', err);
+//         setGeoError(err.message || 'Failed to load GeoJSON');
+//       } finally {
+//         setLoadingGeo(false);
+//       }
+//     };
+
+//     loadGeo();
+//   }, []);
+
+//   const selectedFeature = useMemo(() => {
+//     if (!geojsonData) return null;
+//     return findFeatureForZone(geojsonData, selectedZone);
+//   }, [geojsonData, selectedZone]);
+
+//   const featureBounds = useMemo(() => {
+//     if (!selectedFeature) return null;
+//     return getFeatureBounds(selectedFeature);
+//   }, [selectedFeature]);
+
+//   const featureCenter = useMemo(() => {
+//     if (!selectedFeature) return [18.5204, 73.8567];
+//     return getFeatureCenter(selectedFeature);
+//   }, [selectedFeature]);
+
+//   const plantingPoints = useMemo(() => {
+//     if (!selectedFeature) return [];
+//     return generatePlantingPoints(selectedFeature, treeCount);
+//   }, [selectedFeature, treeCount]);
+
+//   const visibleCount = Math.max(0, Math.round((plantingPoints.length * progress) / 100));
+//   const visiblePoints = plantingPoints.slice(0, visibleCount);
+
+//   const matchedFeatureName = useMemo(() => {
+//     if (!selectedFeature || !geojsonData?.features) return 'Selected Zone';
+//     const index = geojsonData.features.findIndex((f) => f === selectedFeature);
+//     return getFeatureDisplayName(selectedFeature, index);
+//   }, [selectedFeature, geojsonData]);
+
+//   const showAfterPanel = isSimulating || simulated;
+
+//   return (
+//     <Card className="eco-card" title={showAfterPanel ? 'Before vs After Geo Simulation' : 'Current Zone (Before Simulation)'}>
+//       <div
+//         style={{
+//           background: 'linear-gradient(180deg, #eff6ff 0%, #f0fdf4 100%)',
+//           borderRadius: 18,
+//           padding: 16,
+//           border: '1px solid #dbeafe'
+//         }}
+//       >
+//         <div style={{ marginBottom: 12 }}>
+//           <Text strong>{selectedZone.zone_name}</Text>
+//           <br />
+//           <Text type="secondary">
+//             {showAfterPanel
+//               ? 'Compare the current polygon ROI with the projected post-planting scenario.'
+//               : 'Current baseline ROI before any planting intervention.'}
+//           </Text>
+//           <div style={{ marginTop: 8 }}>
+//             <Tag color="blue">GeoJSON ROI: {matchedFeatureName}</Tag>
+//           </div>
+//         </div>
+
+//         {loadingGeo ? (
+//           <div style={{ minHeight: 340, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+//             <Spin size="large" />
+//           </div>
+//         ) : geoError ? (
+//           <Alert
+//             type="warning"
+//             showIcon
+//             title="GeoJSON not available"
+//             description="Could not load /zones.geojson. Add the file to public/zones.geojson to enable map-based simulation."
+//           />
+//         ) : !selectedFeature ? (
+//           <Alert
+//             type="warning"
+//             showIcon
+//             title="No polygon available"
+//             description="No valid polygon could be loaded from zones.geojson."
+//           />
+//         ) : (
+//           <Row gutter={[16, 16]}>
+//             <Col xs={24} md={showAfterPanel ? 12 : 24}>
+//               <SingleMap
+//                 title="Before Intervention"
+//                 subtitle="Current ROI condition"
+//                 feature={selectedFeature}
+//                 featureCenter={featureCenter}
+//                 featureBounds={featureBounds}
+//                 showPoints={false}
+//                 visiblePoints={[]}
+//                 isAfter={false}
+//               />
+//             </Col>
+
+//             {showAfterPanel && (
+//               <Col xs={24} md={12}>
+//                 <SingleMap
+//                   title="After Intervention"
+//                   subtitle={`Projected ${timeHorizon}-month planting scenario`}
+//                   feature={selectedFeature}
+//                   featureCenter={featureCenter}
+//                   featureBounds={featureBounds}
+//                   showPoints={true}
+//                   visiblePoints={visiblePoints}
+//                   isAfter={true}
+//                 />
+//               </Col>
+//             )}
+//           </Row>
+//         )}
+
+//         <Divider />
+
+//         <Row gutter={12}>
+//           <Col xs={8}>
+//             <Statistic title="Candidate Spots" value={showAfterPanel ? plantingPoints.length : 0} />
+//           </Col>
+//           <Col xs={8}>
+//             <Statistic title="Visible Trees (After)" value={showAfterPanel ? visibleCount : 0} suffix={showAfterPanel ? `/ ${plantingPoints.length}` : ''} />
+//           </Col>
+//           <Col xs={8}>
+//             <Statistic title="Simulation Progress" value={showAfterPanel ? progress : 0} suffix="%" />
+//           </Col>
+//         </Row>
+//       </div>
+//     </Card>
+//   );
+// }
+
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Card, Typography, Divider, Row, Col, Statistic, Spin, Alert, Tag } from 'antd';
+import { MapContainer, TileLayer, GeoJSON, CircleMarker, Popup } from 'react-leaflet';
+
+import {
+  findFeatureForZone,
+  getFeatureBounds,
+  getFeatureCenter,
+  generatePlantingPoints,
+  getFeatureDisplayName
+} from './geoSimulationUtils';
+
+const { Text } = Typography;
+
+function SingleMap({
+  title,
+  subtitle,
+  feature,
+  featureCenter,
+  featureBounds,
+  showPoints = false,
+  visiblePoints = [],
+  isAfter = false
+}) {
+  const mapRef = useRef(null);
+
+  useEffect(() => {
+    if (mapRef.current && featureBounds) {
+      setTimeout(() => {
+        mapRef.current.fitBounds(featureBounds, {
+          padding: [60, 60],   // ✅ increased padding
+          maxZoom: 14          // ✅ prevents over-zoom
+        });
+      }, 100);
+    }
+  }, [featureBounds]);
+
+  const zoneStyle = {
+    color: isAfter ? '#16a34a' : '#f97316',
+    weight: 3,
+    fillColor: isAfter ? '#22c55e' : '#fb923c',
+    fillOpacity: isAfter ? 0.18 : 0.12
+  };
+
+  return (
+    <div>
+      <div style={{ marginBottom: 10 }}>
+        <Text strong>{title}</Text>
+        <br />
+        <Text type="secondary">{subtitle}</Text>
+      </div>
+
+      <div
+        style={{
+          height: 300,
+          minHeight: 300,
+          borderRadius: 16,
+          overflow: 'hidden',
+          border: '1px solid #cbd5e1'
+        }}
+      >
+        <MapContainer
+          center={featureCenter}
+          zoom={13}
+          style={{ height: '100%', width: '100%' }}
+          ref={mapRef}
+          scrollWheelZoom={false}
+          doubleClickZoom={false}
+          dragging={true}
+          zoomControl={false}
+        >
+          <TileLayer
+            attribution='&copy; OpenStreetMap contributors'
+            url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+          />
+
+          <GeoJSON data={feature} style={() => zoneStyle} />
+
+          {showPoints &&
+            visiblePoints.map((pt, idx) => (
+              <CircleMarker
+                key={pt.id}
+                center={[pt.lat, pt.lng]}
+                radius={6 + ((idx % 3) * 1.5)}
+                pathOptions={{
+                  color: '#166534',
+                  fillColor: '#22c55e',
+                  fillOpacity: 0.9,
+                  weight: 2
+                }}
+              >
+                <Popup>
+                  <div>
+                    <strong>AI Planting Spot #{idx + 1}</strong>
+                    <br />
+                    Candidate micro-intervention point
+                  </div>
+                </Popup>
+              </CircleMarker>
+            ))}
+        </MapContainer>
+      </div>
+    </div>
+  );
+}
+
+export default function BeforeAfterGeoMaps({
+  selectedZone,
+  simulated,
+  isSimulating,
+  timeHorizon,
+  progress,
+  treeCount
+}) {
+  const [geojsonData, setGeojsonData] = useState(null);
+  const [loadingGeo, setLoadingGeo] = useState(true);
+  const [geoError, setGeoError] = useState(null);
+
+  useEffect(() => {
+    const loadGeo = async () => {
+      try {
+        setLoadingGeo(true);
+        setGeoError(null);
+
+        const res = await fetch('/zones.geojson');
+        if (!res.ok) {
+          throw new Error('Could not load zones.geojson');
+        }
+
+        const data = await res.json();
+        setGeojsonData(data);
+      } catch (err) {
+        console.error('GeoJSON load error:', err);
+        setGeoError(err.message || 'Failed to load GeoJSON');
+      } finally {
+        setLoadingGeo(false);
+      }
+    };
+
+    loadGeo();
+  }, []);
+
+  const selectedFeature = useMemo(() => {
+    if (!geojsonData) return null;
+    return findFeatureForZone(geojsonData, selectedZone);
+  }, [geojsonData, selectedZone]);
+
+  const featureBounds = useMemo(() => {
+    if (!selectedFeature) return null;
+    return getFeatureBounds(selectedFeature);
+  }, [selectedFeature]);
+
+  const featureCenter = useMemo(() => {
+    if (!selectedFeature) return [18.5204, 73.8567];
+    return getFeatureCenter(selectedFeature);
+  }, [selectedFeature]);
+
+  const plantingPoints = useMemo(() => {
+    if (!selectedFeature) return [];
+    return generatePlantingPoints(selectedFeature, treeCount);
+  }, [selectedFeature, treeCount]);
+
+  const visibleCount = Math.max(0, Math.round((plantingPoints.length * progress) / 100));
+  const visiblePoints = plantingPoints.slice(0, visibleCount);
+
+  const matchedFeatureName = useMemo(() => {
+    if (!selectedFeature || !geojsonData?.features) return 'Selected Zone';
+    const index = geojsonData.features.findIndex((f) => f === selectedFeature);
+    return getFeatureDisplayName(selectedFeature, index);
+  }, [selectedFeature, geojsonData]);
+
+  const showAfterPanel = isSimulating || simulated;
+
+  return (
+    <Card className="eco-card" title={showAfterPanel ? 'Before vs After Geo Simulation' : 'Current Zone (Before Simulation)'}>
+      <div
+        style={{
+          background: 'linear-gradient(180deg, #eff6ff 0%, #f0fdf4 100%)',
+          borderRadius: 18,
+          padding: 16,
+          border: '1px solid #dbeafe'
+        }}
+      >
+        <div style={{ marginBottom: 12 }}>
+          <Text strong>{selectedZone.zone_name}</Text>
+          <br />
+          <Text type="secondary">
+            {showAfterPanel
+              ? 'Compare the current polygon ROI with the projected post-planting scenario.'
+              : 'Current baseline ROI before any planting intervention.'}
+          </Text>
+          <div style={{ marginTop: 8 }}>
+            <Tag color="blue">GeoJSON ROI: {matchedFeatureName}</Tag>
+          </div>
+        </div>
+
+        {loadingGeo ? (
+          <div style={{ minHeight: 340, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Spin size="large" />
+          </div>
+        ) : geoError ? (
+          <Alert
+            type="warning"
+            showIcon
+            title="GeoJSON not available"
+            description="Could not load /zones.geojson. Add the file to public/zones.geojson to enable map-based simulation."
+          />
+        ) : !selectedFeature ? (
+          <Alert
+            type="warning"
+            showIcon
+            title="No polygon available"
+            description="No valid polygon could be loaded from zones.geojson."
+          />
+        ) : (
+          <Row gutter={[16, 16]}>
+            <Col xs={24} md={showAfterPanel ? 12 : 24}>
+              <SingleMap
+                title="Before Intervention"
+                subtitle="Current ROI condition"
+                feature={selectedFeature}
+                featureCenter={featureCenter}
+                featureBounds={featureBounds}
+                showPoints={false}
+                visiblePoints={[]}
+                isAfter={false}
+              />
+            </Col>
+
+            {showAfterPanel && (
+              <Col xs={24} md={12}>
+                <SingleMap
+                  title="After Intervention"
+                  subtitle={`Projected ${timeHorizon}-month planting scenario`}
+                  feature={selectedFeature}
+                  featureCenter={featureCenter}
+                  featureBounds={featureBounds}
+                  showPoints={true}
+                  visiblePoints={visiblePoints}
+                  isAfter={true}
+                />
+              </Col>
+            )}
+          </Row>
+        )}
+
+        <Divider />
+
+        <Row gutter={12}>
+          <Col xs={8}>
+            <Statistic title="Candidate Spots" value={showAfterPanel ? plantingPoints.length : 0} />
+          </Col>
+          <Col xs={8}>
+            <Statistic title="Visible Trees (After)" value={showAfterPanel ? visibleCount : 0} suffix={showAfterPanel ? `/ ${plantingPoints.length}` : ''} />
+          </Col>
+          <Col xs={8}>
+            <Statistic title="Simulation Progress" value={showAfterPanel ? progress : 0} suffix="%" />
+          </Col>
+        </Row>
+      </div>
+    </Card>
+  );
+}
+

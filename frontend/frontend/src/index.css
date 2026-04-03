@@ -1,0 +1,280 @@
+@import 'antd/dist/reset.css';
+@import 'leaflet/dist/leaflet.css';
+
+:root {
+  --primary: #1b4332;
+  --secondary: #588157;
+  --accent: #a3b18a;
+  --background: #f1f8f4;
+  --text: #2b2d42;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', 'Roboto', sans-serif;
+  background: linear-gradient(180deg, #f1f8f4, #e6f4ea);
+  color: var(--text);
+}
+
+.eco-card {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 20px 24px;   /* tighter vertical spacing */
+  box-shadow: 0 6px 20px rgba(27, 67, 50, 0.08);
+  border: 1px solid rgba(82, 183, 136, 0.15);
+  transition: all 0.3s ease;
+}
+
+.home-page .eco-card:hover {
+  background: #1b4332 !important;
+  transform: translateY(-6px);
+  box-shadow: 0 12px 30px rgba(27, 67, 50, 0.5);
+  border: 1px solid #1b4332;
+}
+
+/* TEXT ONLY FOR HOME PAGE */
+.home-page .eco-card:hover .ant-typography,
+.home-page .eco-card:hover .ant-typography h3,
+.home-page .eco-card:hover .ant-typography p,
+.home-page .eco-card:hover .ant-typography span {
+  color: #ffffff !important;
+}
+
+/* ICONS */
+.home-page .eco-card:hover .anticon {
+  color: #ffffff !important;
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.eco-btn {
+  background-color: var(--primary) !important;
+  color: white !important;
+  border-radius: 8px !important;
+  border: none !important;
+  font-weight: 600 !important;
+  padding: 0 20px !important;
+  height: 40px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: 0 4px 10px rgba(27, 67, 50, 0.2) !important;
+  transition: all 0.3s ease !important;
+  cursor: pointer !important;
+}
+
+.eco-btn:hover {
+  background-color: var(--secondary) !important;
+  box-shadow: 0 6px 15px rgba(88, 129, 87, 0.3) !important;
+}
+
+/* Ant overrides */
+.ant-layout-header {
+  background: linear-gradient(90deg, #1b4332, #2d6a4f) !important;
+  padding: 0 40px !important;
+  height: 70px !important;
+  display: flex;
+  align-items: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+.ant-menu {
+  background: transparent !important;
+  border-right: none !important;
+}
+.ant-layout-sider {
+  background: var(--primary) !important;
+}
+
+.section-alt {
+  background: #e6f4ea;
+  padding: 40px;
+  border-radius: 16px;
+}
+
+.ant-menu-item {
+  color: rgba(255,255,255,0.85) !important;
+  font-weight: 500;
+  border-radius: 8px;
+  margin: 0 6px !important;
+  transition: all 0.25s ease;
+}
+
+.ant-menu-item:hover {
+  background: rgba(255,255,255,0.12) !important;
+  color: white !important;
+}
+
+.ant-menu-item-selected {
+  background: rgba(255,255,255,0.25) !important;
+  color: #ffffff !important;
+  font-weight: 600;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+}
+
+/* ✅ FORCE TEXT WHITE */
+.ant-menu-item-selected .ant-menu-title-content,
+.ant-menu-item-selected span {
+  color: #ffffff !important;
+}
+
+/* ✅ ICON COLOR */
+.ant-menu-item-selected .anticon {
+  color: #ffffff !important;
+}
+
+.ant-menu-item .anticon {
+  font-size: 16px;
+  margin-right: 8px;
+}
+
+.ant-menu-horizontal {
+  border-bottom: none !important;
+}
+
+.ant-menu-item::after {
+  display: none !important;
+}
+
+.light-btn {
+  background: white !important;
+  color: var(--primary) !important;
+}
+
+.light-btn:hover {
+  background: #f1f8f4 !important;
+  color: var(--primary) !important;
+}
+
+/* Typing effect */
+.typing-text {
+  overflow: hidden;
+  white-space: nowrap;
+  border-right: 3px solid rgba(255,255,255,0.8);
+  width: 0;
+  animation: typing 3s steps(40, end) forwards,
+             blink 0.8s infinite;
+}
+
+/* Typing animation */
+@keyframes typing {
+  from { width: 0 }
+  to { width: 100% }
+}
+
+/* Cursor blink */
+@keyframes blink {
+  50% { border-color: transparent }
+}
+
+.typing-text {
+  display: inline-block;
+  max-width: 100%;
+}
+
+.fade-in-up {
+  animation: fadeUp 0.8s ease forwards;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(25px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.walking-bridge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+.walking-bridge svg {
+  height: 120px;
+}
+
+/* BIG MAP CARD */
+.map-card {
+  padding: 24px;
+}
+
+/* MAP CONTAINER */
+.map-container {
+  height: 400px;   /* 🔥 THIS FIXES YOUR PROBLEM */
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #e0e0e0;
+}
+
+/* OPTIONAL: better spacing */
+.map-container .leaflet-container {
+  height: 100%;
+  width: 100%;
+}
+
+/* ✅ NAVBAR CAPSULE STYLE */
+.ant-layout-header {
+  width: calc(100% - 40px);
+  max-width: 1200px;
+  margin: 12px auto;
+  border-radius: 50px;
+
+  padding: 0 40px !important;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.25);
+  border: 2px solid rgba(255, 255, 255, 0.15);
+}
+
+.ant-menu {
+  display: flex;
+  justify-content: space-between;   /* 👈 equal spacing */
+  align-items: center;
+  width: 100%;
+}
+
+.ant-menu-item {
+  flex: 1;                    /* 👈 equal width for each item */
+  text-align: center;         /* center text */
+}
+
+.worker-card {
+  background: #f1f8f4;
+  padding: 16px;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.worker-card:hover {
+  background: #1b4332;
+  color: white;
+  transform: translateY(-5px);
+}
+
+.season-card {
+  background: #f1f8f4;
+  padding: 16px;
+  border-radius: 12px;
+  transition: 0.3s;
+}
+
+.season-card:hover {
+  background: #1b4332;
+  color: white;
+}
+
+
+
+
+
