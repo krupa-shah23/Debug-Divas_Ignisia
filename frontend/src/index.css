@@ -249,6 +249,31 @@ body {
   text-align: center;         /* center text */
 }
 
+.worker-card {
+  background: #f1f8f4;
+  padding: 16px;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.worker-card:hover {
+  background: #1b4332;
+  color: white;
+  transform: translateY(-5px);
+}
+
+.season-card {
+  background: #f1f8f4;
+  padding: 16px;
+  border-radius: 12px;
+  transition: 0.3s;
+}
+
+.season-card:hover {
+  background: #1b4332;
+  color: white;
+}
+
 
 
 

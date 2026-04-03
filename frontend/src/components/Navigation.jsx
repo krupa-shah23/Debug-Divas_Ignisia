@@ -22,7 +22,10 @@ export default function Navigation() {
     { key: '/dashboard', icon: <DashboardOutlined />, label: <Link to="/dashboard">Dashboard</Link> },
     { key: '/analytics', icon: <TableOutlined />, label: <Link to="/analytics">Analytics</Link> },
     { key: '/optimization', icon: <ExperimentOutlined />, label: <Link to="/optimization">Optimization</Link> },
-    { key: '/simulation', icon: <LineChartOutlined />, label: <Link to="/simulation">Simulation</Link> }
+    { key: '/simulation', icon: <LineChartOutlined />, label: <Link to="/simulation">Simulation</Link> },
+
+    // ✅ ADDED CORRECTLY INSIDE items
+    { key: '/human-impact', icon: <BulbOutlined />, label: <Link to="/human-impact">Human Impact</Link> }
   ];
 
   return (

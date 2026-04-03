@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard';
 import Analytics from './pages/Analytics';
 import Optimization from './pages/Optimization';
 import Simulation from './pages/Simulation';
+import HumanImpact from './pages/HumanImpact';
 
 const { Content } = Layout;
 
@@ -22,6 +23,7 @@ function App() {
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/optimization" element={<Optimization />} />
             <Route path="/simulation" element={<Simulation />} />
+            <Route path="/human-impact" element={<HumanImpact />} />
           </Routes>
         </Content>
       </Layout>
