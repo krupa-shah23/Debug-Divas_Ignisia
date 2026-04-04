@@ -1,5 +1,6 @@
 import pandas as pd
 import os
+from water_constraint import check_water_feasibility
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -11,13 +12,20 @@ def generate_features(city, budget):
     # ==========================
     # LOAD REAL FEATURES
     # ==========================
-    features_path = os.path.join(BASE_DIR, "data", "processed_csv", f"{city}_features.csv")
-
+    features_path = os.path.join(BASE_DIR, "data", "zones_features.csv")
     if not os.path.exists(features_path):
         print(f"[ERROR] Missing features for {city}")
         return None
 
     df = pd.read_csv(features_path)
+    df = df[df["city"].str.lower() == city.lower()]
+
+    water_path = os.path.join(BASE_DIR, "data", "mock", "water_availability.csv")
+
+    water_df = pd.read_csv(water_path)
+
+    # merge with main dataframe
+    df = df.merge(water_df, on="zone_id", how="left")   
 
     if df.empty:
         print(f"[ERROR] Empty features file for {city}")
@@ -65,9 +73,16 @@ def generate_features(city, budget):
     # ==========================
     # WATER CONSTRAINT
     # ==========================
-    df["water_available"] = df["NDWI"] > df["NDWI"].median()
+    water_path = os.path.join(BASE_DIR, "data", "mock", "water_availability.csv")
+    water_df = pd.read_csv(water_path)
 
-    df_filtered = df[df["water_available"] == True].copy()
+    df = df.merge(water_df, on="zone_id", how="left")
+
+    df["water_feasible"] = df.apply(check_water_feasibility, axis=1)
+
+    df_filtered = df[df["water_feasible"] == True].copy()
+
+    removed_count = len(df) - len(df_filtered)
 
     if df_filtered.empty:
         print("[WARNING] Water filter removed all → fallback to full dataset")

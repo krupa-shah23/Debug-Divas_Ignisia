@@ -69,7 +69,7 @@ export default function Landing() {
 
   {/* 🔥 ANIMATION */}
   <Col xs={24} md={4}>
-    <div className="walking-bridge">
+    <div className="walking-people" style={{ transform: 'scale(1.8)', transformOrigin: 'center' }}>
       <WalkingPeople />
     </div>
   </Col>

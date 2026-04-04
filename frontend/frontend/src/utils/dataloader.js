@@ -48,3 +48,9 @@ export async function loadCitySimulation(city) {
     const csvText = await res.text();
     return parseCSV(csvText);
 }
+
+export async function loadData(city) {
+  const response = await fetch(`/data/processed/scored_zones_${city}.csv`);
+  const text = await response.text();
+  return text;
+}

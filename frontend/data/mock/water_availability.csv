@@ -1,0 +1,6 @@
+zone_id,has_water_access,distance_to_pipeline
+Z1,1,120
+Z2,0,900
+Z3,1,300
+Z4,1,700
+Z5,0,400

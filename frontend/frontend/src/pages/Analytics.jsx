@@ -265,75 +265,95 @@ export default function Analytics() {
   ];
 
   return (
-    <div style={{ padding: '24px' }}>
-      <Card className="eco-card" style={{ marginBottom: 20 }}>
-        <Row gutter={[16, 16]} align="middle" justify="space-between">
-          <Col xs={24} md={10}>
-            <Title level={2} style={{ margin: 0 }}>Data Analytics Studio</Title>
-            <Text type="secondary">
-              Explore zone-wise impact scores, NDVI, LST, and feasibility insights city-by-city.
-            </Text>
-          </Col>
-
-          <Col xs={24} md={8}>
-            <Text strong>Select City</Text>
-            <Select
-              showSearch
-              value={selectedCity}
-              style={{ width: '100%', marginTop: 8 }}
-              onChange={(value) => setSelectedCity(value)}
-              options={cityOptions.map(city => ({
-                value: city,
-                label: city.charAt(0).toUpperCase() + city.slice(1)
-              }))}
-              placeholder="Select a city"
-              optionFilterProp="label"
-            />
-          </Col>
-        </Row>
-      </Card>
-
-      <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
-        <Col xs={24} sm={12} md={6}>
-          <Card className="eco-card">
-            <Statistic title="Total Zones" value={data.length} />
-          </Card>
+  <div style={{ padding: '28px', background: '#f5f7fa' }}>
+    
+    {/* HEADER */}
+    <Card className="eco-card" style={{ marginBottom: 24, borderRadius: 12 }}>
+      <Row gutter={[16, 16]} align="middle" justify="space-between">
+        
+        <Col xs={24} md={12}>
+          <Title level={2} style={{ margin: 0, fontWeight: 600 }}>
+            Data Analytics Studio
+          </Title>
+          <Text type="secondary" style={{ fontSize: 14 }}>
+            Explore zone-wise impact scores, NDVI, LST, and feasibility insights city-by-city.
+          </Text>
         </Col>
-        <Col xs={24} sm={12} md={6}>
-          <Card className="eco-card">
-            <Statistic title="High Priority Zones" value={highPriorityCount} />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} md={6}>
-          <Card className="eco-card">
-            <Statistic title="Avg Impact Score" value={avgImpact} />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} md={6}>
-          <Card className="eco-card">
-            <Statistic title="Water Feasible Zones" value={waterAvailableCount} />
-          </Card>
-        </Col>
-      </Row>
 
-      <Card className="eco-card" style={{ marginBottom: 20 }}>
-        <Statistic title="Average LST (°C)" value={avgLST} />
-      </Card>
-
-      <Card className="eco-card">
-        <Spin spinning={loading}>
-          <Table
-            dataSource={data}
-            columns={columns}
-            rowKey="zone_id"
-            pagination={{ pageSize: 10 }}
-            scroll={{ x: 1300 }}
-            rowClassName={(record) =>
-              num(record.impact_score) > 0.6 ? 'high-priority-row' : ''
-            }
+        <Col xs={24} md={6}>
+          <Text strong style={{ fontSize: 14 }}>Select City</Text>
+          <Select
+            showSearch
+            value={selectedCity}
+            style={{ width: '100%', marginTop: 6 }}
+            onChange={(value) => setSelectedCity(value)}
+            options={cityOptions.map(city => ({
+              value: city,
+              label: city.charAt(0).toUpperCase() + city.slice(1)
+            }))}
+            placeholder="Select a city"
+            optionFilterProp="label"
           />
-        </Spin>
-      </Card>
-    </div>
-  );
+        </Col>
+
+      </Row>
+    </Card>
+
+    {/* ✅ 5 STATS IN ONE ROW */}
+   <Row
+  gutter={20}
+  style={{ marginBottom: 24 }}
+  wrap={false}   // 🚨 THIS FORCES SINGLE ROW
+>
+
+  <Col flex="1">
+    <Card className="eco-card stat-card">
+      <Statistic title="Total Zones" value={data.length} />
+    </Card>
+  </Col>
+
+  <Col flex="1">
+    <Card className="eco-card stat-card">
+      <Statistic title="High Priority Zones" value={highPriorityCount} />
+    </Card>
+  </Col>
+
+  <Col flex="1">
+    <Card className="eco-card stat-card">
+      <Statistic title="Avg Impact Score" value={avgImpact} />
+    </Card>
+  </Col>
+
+  <Col flex="1">
+    <Card className="eco-card stat-card">
+      <Statistic title="Water Feasible Zones" value={waterAvailableCount} />
+    </Card>
+  </Col>
+
+  <Col flex="1">
+    <Card className="eco-card stat-card">
+      <Statistic title="Avg LST (°C)" value={avgLST} />
+    </Card>
+  </Col>
+
+</Row>
+
+    {/* TABLE */}
+    <Card className="eco-card" style={{ borderRadius: 12 }}>
+      <Spin spinning={loading}>
+        <Table
+          dataSource={data}
+          columns={columns}
+          rowKey="zone_id"
+          pagination={{ pageSize: 10 }}
+          scroll={{ x: 1300 }}
+          rowClassName={(record) =>
+            num(record.impact_score) > 0.6 ? 'high-priority-row' : ''
+          }
+        />
+      </Spin>
+    </Card>
+
+  </div>
+);
 }
