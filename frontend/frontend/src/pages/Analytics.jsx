@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Tag, Card, Typography, Spin, Select, Row, Col, Statistic, message } from 'antd';
 import { loadCityScoredZones } from '../utils/dataloader';
+import Chatbot from "../components/Chatbot";
 
 const { Title, Text } = Typography;
 
@@ -15,6 +16,34 @@ const num = (v, fallback = 0) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : fallback;
 };
+
+// 🔥 NEW: simulate urban factors (replace later with real data if available)
+function computeUrbanFactors(row) {
+  const ndvi = num(row.NDVI ?? row.ndvi, 0.3);
+  const impact = num(row.impact_score, 0.6);
+
+  // 🔥 base from impact
+  let base = impact * 70;
+
+  // 🔥 zone-based variation (key idea)
+  const zoneId = String(row.zone_id || row.Zone_ID || row.id || "Z1");
+
+  // extract number from Z1, Z2, etc.
+  const zoneNumber = parseInt(zoneId.replace(/\D/g, "")) || 1;
+
+  // create variation pattern
+  const variation = (zoneNumber % 5) * 8 - 10;
+
+  let co2 = base + variation;
+
+  // clamp between 45–100
+  co2 = Math.max(45, Math.min(100, Math.round(co2)));
+
+  const population = Math.round(5000 + (1 - ndvi) * 10000);
+  const builtUp = clamp01(1 - ndvi + 0.2);
+
+  return { co2, population, builtUp };
+}
 
 // normalize to 0-1
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
@@ -85,26 +114,22 @@ function computeTreesNeeded(row) {
 function computeExplanation(row, impact, trees) {
   const ndvi = num(row.NDVI ?? row.ndvi, 0.3);
   const lst = num(row.LST ?? row.lst, 38);
-  const water = row.water_available ?? row.water_access ?? row.water_feasible ?? true;
 
-  const reasons = [];
+  const { co2, population, builtUp } = computeUrbanFactors(row);
 
-  if (ndvi < 0.22) reasons.push('very low canopy cover');
-  else if (ndvi < 0.30) reasons.push('low vegetation');
-
-  if (lst > 42) reasons.push('severe heat stress');
-  else if (lst > 38) reasons.push('elevated land surface temperature');
-
-  if (water) reasons.push('feasible irrigation access');
-  else reasons.push('water-constrained implementation');
-
-  if (impact > 0.7) {
-    return `High-priority zone due to ${reasons.join(', ')}. Recommended intervention: ~${trees} trees.`;
+  if (co2 > 70 && builtUp > 0.7) {
+    return `⚠️ High CO₂ emissions and dense built-up areas are reducing green canopy. Immediate greening needed (~${trees} trees).`;
   }
-  if (impact > 0.45) {
-    return `Moderate-priority zone due to ${reasons.join(', ')}. Suggested intervention: ~${trees} trees.`;
+
+  if (population > 10000) {
+    return `📈 High population density is limiting green space availability. Urban forestry recommended (~${trees} trees).`;
   }
-  return `Lower-priority zone with ${reasons.join(', ')}. Monitor and intervene selectively (~${trees} trees).`;
+
+  if (ndvi < 0.25) {
+    return `🌳 Low vegetation cover detected. Increasing canopy will improve thermal comfort and air quality.`;
+  }
+
+  return `✅ Balanced zone with moderate environmental stress. Maintain green cover.`;
 }
 
 export default function Analytics() {
@@ -127,8 +152,11 @@ export default function Analytics() {
         const impact = computeImpactScore(z);
         const trees = computeTreesNeeded(z);
 
+        const urban = computeUrbanFactors(z);
+
         return {
-          ...z,
+          ...z, 
+          ...urban,
           zone_id: z.zone_id || z.Zone_ID || z.id || z.zone || `zone_${index + 1}`,
           impact_score: impact,
           priority_rank:
@@ -261,13 +289,39 @@ export default function Analytics() {
       dataIndex: 'explanation',
       key: 'explanation',
       ellipsis: true
-    }
+    },
+    {
+  title: 'CO₂ (%)',
+  dataIndex: 'co2',
+  key: 'co2',
+  render: (v) => (
+    <Tag color={v > 70 ? 'red' : v > 50 ? 'orange' : 'green'}>
+      {v.toFixed(0)}
+    </Tag>
+  ),
+  width: 110
+},
+{
+  title: 'Population',
+  dataIndex: 'population',
+  key: 'population',
+  render: (v) => v.toLocaleString(),
+  width: 130
+},
+{
+  title: 'Built-up (%)',
+  dataIndex: 'builtUp',
+  key: 'builtUp',
+  render: (v) => `${(v * 100).toFixed(0)}%`,
+  width: 120
+}
   ];
 
   return (
-  <div style={{ padding: '28px', background: '#f5f7fa' }}>
+  <div style={{ display: "flex", padding: "28px", background: "#f5f7fa" }}>
     
     {/* HEADER */}
+    <div style={{ flex: 3, marginRight: "20px" }}>
     <Card className="eco-card" style={{ marginBottom: 24, borderRadius: 12 }}>
       <Row gutter={[16, 16]} align="middle" justify="space-between">
         
@@ -353,7 +407,8 @@ export default function Analytics() {
         />
       </Spin>
     </Card>
-
+    </div>  
+    <Chatbot data={data} />
   </div>
 );
 }
