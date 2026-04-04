@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="popup.css">
+  <script src="../lib/jspdf.umd.min.js"></script>
+  <script src="popup.js" defer></script>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="title">TreeScope Overlay</div>
+      <div class="subtitle">AI Urban Planting Recommendations</div>
+    </div>
+    
+    <div class="controls glass-panel">
+      <div class="control-row">
+        <span class="label-text">Enable Overlay</span>
+        <label class="switch">
+          <input type="checkbox" id="toggle-overlay">
+          <span class="slider round"></span>
+        </label>
+      </div>
+
+      <div class="control-row">
+        <span class="label-text">Overlay Mode</span>
+        <select id="mode-select" class="dropdown">
+          <option value="planting">Planting Potential</option>
+          <option value="heat">Heat Risk + Planting</option>
+          <option value="water">Water Constraint View</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="legend glass-panel">
+      <div class="legend-title">Legend</div>
+      <div class="legend-item"><span class="box green"></span> High Potential</div>
+      <div class="legend-item"><span class="box teal"></span> Moderate / Review</div>
+      <div class="legend-item"><span class="box red"></span> Restricted / Avoid</div>
+    </div>
+
+    <div class="actions">
+      <button id="refresh-btn" class="btn secondary">Refresh Overlay</button>
+      <button id="pdf-btn" class="btn primary">Download PDF Report</button>
+    </div>
+  </div>
+</body>
+</html>

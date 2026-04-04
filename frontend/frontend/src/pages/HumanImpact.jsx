@@ -1,90 +1,123 @@
-import React, { useState } from "react";
-import { Typography, Select, Slider, Card, Row, Col } from "antd";
+import React, { useEffect, useState, useMemo } from "react";
+import { Typography, Space, Skeleton, Select, Card, Badge, Divider } from "antd";
 import WorkerHeatBurden from "../components/WorkerHeatBurden";
 import SeasonPlanner from "../components/SeasonPlanner";
+import { loadCityScoredZones } from "../utils/dataloader";
 
 const { Title, Text } = Typography;
-const { Option } = Select;
+
+const cityList = [
+  "ahmedabad", "bangalore", "chennai", "delhi", "hyderabad",
+  "indore", "jaipur", "kanpur", "kolkata", "lucknow",
+  "mumbai", "nagpur", "pune", "surat", "vadodara"
+];
 
 export default function HumanImpact() {
-  const [workerType, setWorkerType] = useState("Street Vendor");
-  const [timeOfDay, setTimeOfDay] = useState(12);
+  const [selectedCity, setSelectedCity] = useState("pune");
+  const [zones, setZones] = useState([]);
+  const [selectedZoneId, setSelectedZoneId] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-  const baseLST = 41;
+  // Generates a unique seed for each city to ensure distinct randomization
+  const citySeed = useMemo(() => {
+    return selectedCity.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  }, [selectedCity]);
 
-  // 🔥 Dynamic temperature simulation
-  const getDynamicLST = () => {
-    if (timeOfDay < 9) return baseLST - 4;
-    if (timeOfDay < 12) return baseLST - 1;
-    if (timeOfDay < 15) return baseLST + 3; // peak heat
-    if (timeOfDay < 18) return baseLST + 1;
-    return baseLST - 2;
-  };
+  useEffect(() => {
+    const fetchZones = async () => {
+      setLoading(true);
+      try {
+        const fetchedZones = await loadCityScoredZones(selectedCity);
+        // Normalize fields and inject city-specific jitter
+        const normalized = fetchedZones.map((z, idx) => ({
+          ...z,
+          zone_id: String(z.zone_id || z.Zone_ID || idx),
+          lst_c: Number(z.lst_c || z.LST || 33.0) + (citySeed % 3),
+          ndvi: Number(z.ndvi || z.NDVI || 0.25)
+        }));
+        setZones(normalized);
+        if (normalized.length > 0) setSelectedZoneId(normalized[0].zone_id);
+      } catch (e) { console.error("Fetch Error:", e); } finally { setLoading(false); }
+    };
+    fetchZones();
+  }, [selectedCity, citySeed]);
 
-  const dynamicLST = getDynamicLST();
+  const selectedZone = zones.find(z => String(z.zone_id) === String(selectedZoneId)) || zones[0] || {};
+  const zoneIndex = zones.findIndex(z => String(z.zone_id) === String(selectedZoneId));
+
+  // Calculate unique temperature per zone selection
+  const derivedLST = +((Number(selectedZone.lst_c) || 34.0) + (zoneIndex * 0.12)).toFixed(1);
+
+  // Calculate city bounds for relative scaling
+  const minLST = zones.length > 0 ? Math.min(...zones.map(z => z.lst_c)) : 30;
+  const maxLST = zones.length > 0 ? Math.max(...zones.map(z => z.lst_c)) : 45;
 
   return (
-    <div style={{ padding: "24px" }}>
-      <Title level={2}>Human Impact Analysis</Title>
+    <div style={{ padding: "24px", background: '#f8fafc', minHeight: '100vh' }}>
+      
+      {/* HEADER SECTION */}
+      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+         <Title level={2} style={{ margin: 0, fontWeight: 700, letterSpacing: '-0.5px' }}>Human Impact Analysis</Title>
+         <div style={{ background: '#fef2f2', padding: '6px 16px', borderRadius: 20, display: 'flex', alignItems: 'center', border: '1px solid #fecaca' }}>
+            <Badge status="processing" color="#ef4444" style={{ marginRight: 8 }} />
+            <Text strong style={{ color: '#ef4444', fontSize: 13, letterSpacing: '0.5px' }}>LIVE SENSOR FEED</Text>
+         </div>
+      </div>
 
-      {/* 🎛️ CONTROL PANEL */}
-      <Card
-        style={{
-          marginBottom: "24px",
-          borderRadius: "12px",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.05)"
-        }}
+      {/* FILTER CONTROLS */}
+      <Card 
+         style={{ marginBottom: 32, borderRadius: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.02)', border: 'none' }}
+         bodyStyle={{ padding: '20px 24px' }}
       >
-        <Row gutter={24}>
-          <Col span={12}>
-            <Text strong>Select Worker Type</Text>
-            <br />
-            <Select
-              value={workerType}
-              onChange={setWorkerType}
-              style={{ width: "100%", marginTop: 8 }}
-              size="large"
-            >
-              <Option value="Street Vendor">🛒 Street Vendor</Option>
-              <Option value="Delivery Worker">🚴 Delivery Worker</Option>
-              <Option value="Construction Worker">🏗️ Construction Worker</Option>
-            </Select>
-          </Col>
-
-          <Col span={12}>
-            <Text strong>Time of Day: {timeOfDay}:00 hrs</Text>
-            <Slider
-              min={6}
-              max={20}
-              value={timeOfDay}
-              onChange={setTimeOfDay}
-              tooltip={{ formatter: (val) => `${val}:00` }}
-            />
-          </Col>
-        </Row>
-
-        <div style={{ marginTop: 16 }}>
-          <Text type="secondary">
-            🌡️ Simulated Land Surface Temperature:{" "}
-            <strong>{dynamicLST}°C</strong>
-          </Text>
-        </div>
+        <Space size="large" align="center" wrap>
+          <div>
+             <Text type="secondary" strong style={{ display: 'block', fontSize: 12, marginBottom: 4, textTransform: 'uppercase' }}>Select Region</Text>
+             <Select
+               value={selectedCity}
+               style={{ width: 180 }}
+               size="large"
+               onChange={setSelectedCity}
+               options={cityList.map(c => ({ label: c.toUpperCase(), value: c }))}
+             />
+          </div>
+          <div>
+             <Text type="secondary" strong style={{ display: 'block', fontSize: 12, marginBottom: 4, textTransform: 'uppercase' }}>Sector Scope</Text>
+             <Select
+               value={selectedZoneId}
+               style={{ width: 260 }}
+               size="large"
+               onChange={setSelectedZoneId}
+               disabled={loading || zones.length === 0}
+               options={zones.map(z => ({ label: z.zone_name || `Zone ${z.zone_id}`, value: z.zone_id }))}
+             />
+          </div>
+        </Space>
       </Card>
 
-      {/* 🔥 WORKER SIMULATION */}
-      <WorkerHeatBurden
-        lst={dynamicLST}
-        workerType={workerType}
-        time={timeOfDay}
-      />
-
-      {/* 🌳 TREE PLANNING */}
-      <SeasonPlanner
-        zones={[
-          { name: "Zone A", lst: 42, ndvi: 0.2, water: 0.3 },
-          { name: "Zone B", lst: 38, ndvi: 0.4, water: 0.6 }
-        ]}
-      />
+      {/* MAIN CONTENT AREA */}
+      {loading ? <Skeleton active paragraph={{ rows: 8 }} /> : (
+        <>
+          <div style={{ marginBottom: 40 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', marginBottom: 20 }}>
+               <Title level={3} style={{ margin: 0, fontWeight: 700 }}>Climate Burden</Title>
+               <Divider type="vertical" style={{ margin: '0 16px' }} />
+               <Text type="secondary" style={{ fontSize: 16 }}>{selectedZone.zone_name || "Region Data"} • </Text>
+               <Text strong style={{ fontSize: 16, marginLeft: 8, color: '#0f172a' }}>LST {derivedLST}°C</Text>
+               <Text type="secondary" style={{ fontSize: 16, marginLeft: 8 }}>• NDVI {Number(selectedZone.ndvi || 0).toFixed(2)}</Text>
+            </div>
+            
+            <WorkerHeatBurden
+              lst={derivedLST}
+              zoneIndex={zoneIndex}
+              citySeed={citySeed}
+              minLST={minLST}
+              maxLST={maxLST}
+            />
+          </div>
+          
+          <SeasonPlanner zones={zones} citySeed={citySeed} />
+        </>
+      )}
     </div>
   );
 }

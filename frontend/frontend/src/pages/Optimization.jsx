@@ -165,18 +165,6 @@ export default function Optimization() {
 
   return (
     <div className="eco-card">
-      <Title level={2}>Optimization Model Comparison</Title>
-
-
-      <Alert
-        message="Simulating Resource Allocation + Species Survival Intelligence"
-        description="Compare baseline Greedy vs AI Knapsack using real city-wise scored zones, then apply a species-level survival prediction layer that recommends not just where to plant, but which tree species is most likely to survive over 5 years."
-        type="info"
-        showIcon
-        icon={<InfoCircleOutlined />}
-        style={{ marginBottom: 20 }}
-      />
-
 
       <div style={{ marginBottom: 20 }}>
         <Text strong>Select City</Text>
@@ -278,20 +266,6 @@ export default function Optimization() {
           </Row>
 
 
-          <Card
-            style={{
-              marginTop: 24,
-              background: '#f6fff8',
-              border: '1px solid #b7eb8f'
-            }}
-          >
-            <Title level={4} style={{ marginBottom: 8 }}>
-              🌳 Twist 1: Species-Aware Planting Intelligence
-            </Title>
-            <Text>
-              The optimization engine now uses real city-wise scored zone data. After Greedy and Knapsack identify the best intervention zones under budget constraints, the system evaluates LST, NDVI, derived soil moisture proxies, and historical climate stress to recommend the best-fit tree species with a projected 5-year survival probability.
-            </Text>
-          </Card>
         </>
       )}
     </div>

@@ -1,0 +1,133 @@
+/* Container for the overall extension elements */
+#treescape-overlay-root {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none; /* Let clicks pass through */
+  z-index: 9000;
+  overflow: hidden;
+}
+
+/* The grid consists of cells dynamically sized */
+.treescape-grid-cell {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  transition: background-color 0.3s, opacity 0.3s;
+}
+
+/* Hover effect via JS adding class */
+.treescape-grid-cell.hovered {
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.8) inset;
+  z-index: 9001;
+}
+
+/* Status Badge */
+#treescape-badge {
+  position: absolute;
+  top: 70px;
+  right: 20px;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(8px);
+  color: white;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  z-index: 9002;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.treescape-badge-title {
+  font-weight: 700;
+  color: #10b981;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.treescape-badge-title::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: #10b981;
+  border-radius: 50%;
+  box-shadow: 0 0 6px #10b981;
+}
+
+.treescape-badge-row {
+  display: flex;
+  justify-content: space-between;
+  width: 180px;
+  color: #cbd5e1;
+}
+
+.treescape-badge-val {
+  font-weight: 600;
+  color: white;
+}
+
+/* Tooltip Styles */
+#treescape-tooltip {
+  position: fixed;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  border-radius: 8px;
+  padding: 12px;
+  min-width: 220px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  z-index: 10000;
+  pointer-events: none;
+  font-size: 13px;
+  color: #1e293b;
+  display: none;
+}
+
+.treescape-tt-header {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+}
+
+.treescape-tt-row {
+  margin-bottom: 4px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.treescape-tt-label {
+  color: #64748b;
+}
+
+.treescape-tt-val {
+  font-weight: 500;
+  text-align: right;
+}
+
+.treescape-tt-why {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dotted #cbd5e1;
+  font-style: italic;
+  color: #475569;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.tt-color-green { color: #10b981; }
+.tt-color-teal { color: #0ea5e9; }
+.tt-color-red { color: #ef4444; }
