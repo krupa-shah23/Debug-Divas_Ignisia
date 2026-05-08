@@ -9,6 +9,26 @@ from pydantic import BaseModel
 app = FastAPI()
 
 
+def to_celsius(value):
+    try:
+        numeric_value = float(value)
+    except (TypeError, ValueError):
+        return value
+
+    if numeric_value > 100:
+        return numeric_value - 273.15
+
+    return numeric_value
+
+
+def normalize_record_lst(record):
+    normalized = dict(record)
+    for key in ("LST", "lst", "lst_c", "temp_before", "temp_after"):
+        if key in normalized:
+            normalized[key] = to_celsius(normalized[key])
+    return normalized
+
+
 
 class AnalyzeRequest(BaseModel):
     lat: float
@@ -57,9 +77,10 @@ def root():
 @app.get("/api/zones")
 def get_zones():
     df, selected, total, season = run_optimization()
+    zones = [normalize_record_lst(record) for record in df.to_dict(orient="records")]
 
     return {
-        "zones": df.to_dict(orient="records")
+        "zones": zones
     }
 
 
@@ -75,9 +96,10 @@ def optimize(payload: dict):
         budget=budget,
         method=method
     )
+    zones = [normalize_record_lst(record) for record in df.to_dict(orient="records")]
 
     return {
-        "zones": df.to_dict(orient="records"),
+        "zones": zones,
         "selected": selected,
         "trees_used": int(total),
         "season": season

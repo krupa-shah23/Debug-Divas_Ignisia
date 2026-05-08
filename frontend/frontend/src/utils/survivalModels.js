@@ -2,6 +2,8 @@
 
 
 
+import { ensureCelsiusNumber } from './lst';
+
 
 export const speciesProfiles = [
     {
@@ -68,11 +70,7 @@ export function normalizeZoneRow(z, index = 0) {
     const zoneId = z.zone_id || z.Zone_ID || z.id || z.zone || `zone_${index + 1}`;
 
 
-    let rawLST = Number(z.LST ?? z.lst ?? 38);
-
-
-    // Convert Kelvin to Celsius if value looks too high
-    const LST = rawLST > 100 ? rawLST - 273.15 : rawLST;
+    const LST = ensureCelsiusNumber(z.LST ?? z.lst, 38);
     const NDVI = Number(z.NDVI ?? z.ndvi ?? 0.25);
 
 
@@ -185,4 +183,3 @@ export function enrichSelectedZonesFromRealData(selectedZoneIds = [], allZones =
         };
     });
 }
-

@@ -1,161 +1,223 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { Row, Col, Typography, message, Spin, Alert } from 'antd';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Row, Col, Spin, Alert } from 'antd';
 import { loadCityGeoJson, loadCityScoredZones } from '../utils/dataloader';
 import { normalizeZoneMetrics, generateHeuristicSimulation } from '../components/simulation/simulationEngine';
 import ProjectedImpactSummary from '../components/simulation/ProjectedImpactSummary';
 import BaselineChart from '../components/simulation/BaselineChart';
 import GrowthTimelineChart from '../components/simulation/GrowthTimelineChart';
-import SimulationMapCard from '../components/simulation/SimulationMapCard'; 
+import SimulationMapCard from '../components/simulation/SimulationMapCard';
 
-const { Title } = Typography;
+const CITY_OPTIONS = [
+  'ahmedabad',
+  'bangalore',
+  'chennai',
+  'delhi',
+  'hyderabad',
+  'indore',
+  'jaipur',
+  'kanpur',
+  'kolkata',
+  'lucknow',
+  'pune',
+  'surat',
+  'vadodara'
+];
 
-const cityOptions = [
-  'ahmedabad', 'bangalore', 'chennai', 'delhi', 'hyderabad',
-  'indore', 'jaipur', 'kanpur', 'kolkata', 'lucknow',
-  'pune', 'surat', 'vadodara'
+const DROUGHT_OPTIONS = [
+  { label: 'Normal Baseline', value: 'normal' },
+  { label: 'Moderate Drought', value: 'moderate' },
+  { label: 'Severe Drought', value: 'severe' }
 ];
 
 export default function Simulation() {
+  const [hasStartedSimulation, setHasStartedSimulation] = useState(false);
   const [selectedCity, setSelectedCity] = useState('pune');
+  const [droughtMode, setDroughtMode] = useState('normal');
   const [zones, setZones] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
-
+  const [error, setError] = useState('');
   const [selectedZoneId, setSelectedZoneId] = useState('');
   const [timeHorizon, setTimeHorizon] = useState(12);
-
-  // Interactive Simulation State
-  const [isSimulating, setIsSimulating] = useState(false);
-  const [simulated, setSimulated] = useState(false);
-
-  // Geo Data
   const [geoData, setGeoData] = useState(null);
   const [usedMockGeo, setUsedMockGeo] = useState(false);
+  const [isSimulating, setIsSimulating] = useState(false);
 
   useEffect(() => {
+    let active = true;
+
     const loadData = async () => {
       setLoadingData(true);
       setUsedMockGeo(false);
-
-      let geo = null;
-      let zoneRows = [];
+      setError('');
 
       try {
-        zoneRows = await loadCityScoredZones(selectedCity);
+        const [geo, zoneRows] = await Promise.all([
+          loadCityGeoJson(selectedCity).catch(() => {
+            if (active) {
+              setUsedMockGeo(true);
+            }
+            return { type: 'FeatureCollection', features: [] };
+          }),
+          loadCityScoredZones(selectedCity, { droughtMode }),
+        ]);
+
+        if (!active) {
+          return;
+        }
+
+        const normalizedZones = zoneRows.map((zone, index) => normalizeZoneMetrics(zone, index));
+        setGeoData(geo);
+        setZones(normalizedZones);
+        setSelectedZoneId(normalizedZones.length ? String(normalizedZones[0].zone_id) : '');
+        setHasStartedSimulation(false);
+        setIsSimulating(false);
       } catch (err) {
-        console.warn("Failed to load baseline metrics.", err);
-        zoneRows = Array.from({ length: 3 }).map((_, i) => ({ zone_id: `Fail-Z${i}`, lst: 39 + i, ndvi: 0.2 }));
+        if (!active) {
+          return;
+        }
+
+        console.error('Simulation data load failed:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load simulation telemetry');
+        setZones([]);
+        setGeoData({ type: 'FeatureCollection', features: [] });
+        setSelectedZoneId('');
+        setHasStartedSimulation(false);
+        setIsSimulating(false);
+      } finally {
+        if (active) {
+          setLoadingData(false);
+        }
       }
-
-      try {
-        geo = await loadCityGeoJson(selectedCity);
-      } catch (err) {
-        console.warn('GeoJSON unavailable, falling back to heuristic generated ROI.');
-        setUsedMockGeo(true);
-        geo = { type: "FeatureCollection", features: [] };
-      }
-
-      setGeoData(geo);
-
-      const normalizedZones = zoneRows.map((z, i) => normalizeZoneMetrics(z, i));
-      setZones(normalizedZones);
-
-      if (normalizedZones.length > 0) {
-        setSelectedZoneId(normalizedZones[0].zone_id);
-      }
-
-      setSimulated(false);
-      setIsSimulating(false);
-      setLoadingData(false);
     };
 
     loadData();
-  }, [selectedCity]);
+
+    return () => {
+      active = false;
+    };
+  }, [selectedCity, droughtMode]);
 
   useEffect(() => {
-    if (simulated) {
-      setIsSimulating(true);
-      setSimulated(false);
-      setTimeout(() => { setIsSimulating(false); setSimulated(true); }, 800);
+    if (!loadingData) {
+      setHasStartedSimulation(false);
+      setIsSimulating(false);
     }
-  }, [timeHorizon]);
+  }, [selectedZoneId, timeHorizon, selectedCity, droughtMode, loadingData]);
 
   const selectedZone = useMemo(
-    () => zones.find((z) => String(z.zone_id) === String(selectedZoneId)) || zones[0],
+    () => zones.find((zone) => String(zone.zone_id) === String(selectedZoneId)) || zones[0] || null,
     [zones, selectedZoneId]
   );
 
   const projection = useMemo(() => {
-    if (!selectedZone) return null;
-    return generateHeuristicSimulation(selectedZone, timeHorizon);
-  }, [selectedZone, timeHorizon]);
+    if (!selectedZone || !hasStartedSimulation) {
+      return null;
+    }
 
-  const runSimulation = () => {
-    if (!selectedZone) return;
+    return generateHeuristicSimulation(selectedZone, timeHorizon, { droughtMode });
+  }, [selectedZone, timeHorizon, droughtMode, hasStartedSimulation]);
+
+  const handleRunSimulation = () => {
+    if (!selectedZone) {
+      return;
+    }
+
+    setHasStartedSimulation(true);
     setIsSimulating(true);
-    setSimulated(false);
+
     setTimeout(() => {
       setIsSimulating(false);
-      setSimulated(true);
-      message.success('Simulation complete: projected post-planting scenario generated.');
-    }, 1500); 
+    }, 1200);
   };
 
   if (loadingData) {
-    return <div style={{ padding: 40, textAlign: 'center' }}><Spin size="large" /></div>;
+    return (
+      <div
+        style={{
+          padding: 40,
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '70vh',
+          background: 'transparent'
+        }}
+      >
+        <Spin size="large" description="Initializing Simulation Engine..." />
+      </div>
+    );
+  }
+
+  if (!selectedZone) {
+    return (
+      <div style={{ padding: 24 }}>
+        {error ? <Alert type="error" showIcon message={error} /> : 'No zone data available for this city.'}
+      </div>
+    );
   }
 
   return (
-    <div style={{ padding: '24px', background: '#f8fafc', minHeight: '100vh' }}>
+    <div style={{ background: 'transparent' }}>
+      {error ? (
+        <Alert
+          type="warning"
+          showIcon
+          message="Simulation fallback mode"
+          description={error}
+          style={{ marginBottom: 24 }}
+        />
+      ) : null}
 
       <Row gutter={[24, 24]}>
-        {/* TOP LEFT: Controls & Summary */}
         <Col xs={24} lg={10}>
           <ProjectedImpactSummary
             selectedCity={selectedCity}
             setSelectedCity={setSelectedCity}
-            cityOptions={cityOptions}
+            cityOptions={CITY_OPTIONS}
             zones={zones}
             selectedZoneId={selectedZoneId}
             setSelectedZoneId={setSelectedZoneId}
+            droughtMode={droughtMode}
+            setDroughtMode={setDroughtMode}
+            droughtOptions={DROUGHT_OPTIONS}
             selectedZone={selectedZone}
             projection={projection}
             timeHorizon={timeHorizon}
             setTimeHorizon={setTimeHorizon}
-            isSimulating={isSimulating}
-            simulated={simulated}
-            runSimulation={runSimulation}
+            isSimulating={hasStartedSimulation ? isSimulating : false}
+            simulated={hasStartedSimulation}
           />
         </Col>
 
-        {/* TOP RIGHT: Geographic Simulation Split */}
         <Col xs={24} lg={14}>
           <SimulationMapCard
             selectedZone={selectedZone}
             projection={projection}
             geoData={geoData}
             usedMockGeo={usedMockGeo}
-            simulated={simulated}
-            isSimulating={isSimulating}
+            simulated={hasStartedSimulation}
+            isSimulating={hasStartedSimulation ? isSimulating : false}
             timeHorizon={timeHorizon}
+            onRunSimulation={handleRunSimulation}
           />
         </Col>
-        
-        {/* BOTTOM LEFT: Baseline Chart */}
-        <Col xs={24} lg={10}>
-           <BaselineChart selectedZone={selectedZone} />
-        </Col>
-        
-        {/* BOTTOM RIGHT: Timeline Chart */}
-        <Col xs={24} lg={14}>
-           <GrowthTimelineChart
-              selectedZone={selectedZone}
-              projection={projection}
-              simulated={simulated}
-              timeHorizon={timeHorizon}
-            />
-        </Col>
-      </Row>
 
+        {hasStartedSimulation && projection && (
+          <>
+            <Col xs={24} lg={10}>
+              <BaselineChart selectedZone={selectedZone} />
+            </Col>
+
+            <Col xs={24} lg={14}>
+              <GrowthTimelineChart
+                selectedZone={selectedZone}
+                projection={projection}
+                simulated
+                timeHorizon={timeHorizon}
+              />
+            </Col>
+          </>
+        )}
+      </Row>
     </div>
   );
 }

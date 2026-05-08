@@ -1,8 +1,226 @@
-import React from 'react';
-import { Card, Typography, Row, Col, Statistic, Select, Button, Segmented, Spin, Tag, Badge, Divider } from 'antd';
-import { PlayCircleOutlined, ThunderboltOutlined } from '@ant-design/icons';
+// import React from 'react';
+// import { Card, Row, Col, Typography, Select, Segmented, Statistic } from 'antd';
 
-const { Title, Text } = Typography;
+// const { Title, Text } = Typography;
+
+// export default function ProjectedImpactSummary({
+//   selectedCity,
+//   setSelectedCity,
+//   cityOptions,
+//   zones,
+//   selectedZoneId,
+//   setSelectedZoneId,
+//   selectedZone,
+//   projection,
+//   timeHorizon,
+//   setTimeHorizon,
+//   isSimulating,
+//   simulated
+// }) {
+//   const showProjected = simulated && projection;
+
+//   return (
+//     <Card
+//       style={{
+//         borderRadius: 16,
+//         boxShadow: '0 4px 12px rgba(0,0,0,0.02)',
+//         border: '1px solid #f1f5f9',
+//         height: '100%'
+//       }}
+//       bodyStyle={{ padding: 24 }}
+//     >
+//       <Row gutter={[16, 16]}>
+//         <Col span={8}>
+//           <Select
+//             value={selectedCity}
+//             onChange={setSelectedCity}
+//             style={{ width: '100%' }}
+//             options={cityOptions.map((city) => ({
+//               label: String(city).toUpperCase(),
+//               value: city
+//             }))}
+//           />
+//         </Col>
+
+//         <Col span={16}>
+//           <Select
+//             value={selectedZoneId}
+//             onChange={setSelectedZoneId}
+//             style={{ width: '100%' }}
+//             options={zones.map((z) => ({
+//               label: z.zone_name || `Zone ${z.zone_id}`,
+//               value: String(z.zone_id)
+//             }))}
+//           />
+//         </Col>
+//       </Row>
+
+//       <Row gutter={[16, 20]} style={{ marginTop: 20 }}>
+//         <Col span={6}>
+//           <Statistic
+//             title="Baseline Canopy"
+//             value={selectedZone?.canopy ?? selectedZone?.tree_canopy_pct ?? 0}
+//             precision={1}
+//             suffix="%"
+//           />
+//         </Col>
+
+//         <Col span={6}>
+//           <Statistic
+//             title="Baseline NDVI"
+//             value={selectedZone?.ndvi ?? 0}
+//             precision={2}
+//           />
+//         </Col>
+
+//         <Col span={6}>
+//           <Statistic
+//             title="Telemetry LST"
+//             value={selectedZone?.lst ?? selectedZone?.lst_c ?? 0}
+//             precision={1}
+//             suffix="°C"
+//           />
+//         </Col>
+
+//         <Col span={6}>
+//           <Statistic
+//             title="Impact Score"
+//             value={selectedZone?.impact ?? selectedZone?.impact_score ?? 0}
+//             precision={3}
+//           />
+//         </Col>
+//       </Row>
+
+//       <Card
+//         size="small"
+//         style={{
+//           marginTop: 20,
+//           borderRadius: 14,
+//           background: '#f8fafc',
+//           border: '1px solid #e2e8f0'
+//         }}
+//       >
+//         <div
+//           style={{
+//             fontSize: 12,
+//             fontWeight: 700,
+//             color: '#64748b',
+//             marginBottom: 14,
+//             letterSpacing: 0.5
+//           }}
+//         >
+//           FORECAST TIMELINE
+//         </div>
+
+//         <Segmented
+//           block
+//           value={timeHorizon}
+//           onChange={setTimeHorizon}
+//           options={[
+//             { label: '6 Months', value: 6 },
+//             { label: '1 Year', value: 12 },
+//             { label: '5 Years', value: 60 },
+//             { label: '10 Years', value: 120 }
+//           ]}
+//         />
+//       </Card>
+
+//       {showProjected ? (
+//         <Card
+//           style={{
+//             marginTop: 24,
+//             borderRadius: 16,
+//             border: '1px solid #dcfce7',
+//             background: '#f0fdf4'
+//           }}
+//           bodyStyle={{ padding: 18 }}
+//         >
+//           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+//             <Text strong style={{ color: '#166534' }}>Projected Improvements</Text>
+//             <Text style={{ fontSize: 12, color: '#16a34a' }}>• Live View</Text>
+//           </div>
+
+//           <Row gutter={[12, 12]}>
+//             <Col span={8}>
+//               <Card
+//                 size="small"
+//                 style={{
+//                   borderRadius: 12,
+//                   border: '1px solid #bbf7d0',
+//                   background: '#f0fdf4'
+//                 }}
+//               >
+//                 <div style={{ fontSize: 11, fontWeight: 700, color: '#166534', marginBottom: 6 }}>
+//                   CANOPY GAIN
+//                 </div>
+//                 <div style={{ fontSize: 22, fontWeight: 800, color: '#15803d' }}>
+//                   +{projection.canopyGain.toFixed(1)}%
+//                 </div>
+//               </Card>
+//             </Col>
+
+//             <Col span={8}>
+//               <Card
+//                 size="small"
+//                 style={{
+//                   borderRadius: 12,
+//                   border: '1px solid #bbf7d0',
+//                   background: '#f0fdf4'
+//                 }}
+//               >
+//                 <div style={{ fontSize: 11, fontWeight: 700, color: '#166534', marginBottom: 6 }}>
+//                   NDVI INCREASE
+//                 </div>
+//                 <div style={{ fontSize: 22, fontWeight: 800, color: '#15803d' }}>
+//                   +{projection.ndviGain.toFixed(2)}
+//                 </div>
+//               </Card>
+//             </Col>
+
+//             <Col span={8}>
+//               <Card
+//                 size="small"
+//                 style={{
+//                   borderRadius: 12,
+//                   border: '1px solid #bfdbfe',
+//                   background: '#eff6ff'
+//                 }}
+//               >
+//                 <div style={{ fontSize: 11, fontWeight: 700, color: '#1d4ed8', marginBottom: 6 }}>
+//                   COOLING RELIEF
+//                 </div>
+//                 <div style={{ fontSize: 22, fontWeight: 800, color: '#2563eb' }}>
+//                   -{projection.coolingBenefit.toFixed(1)}°C
+//                 </div>
+//               </Card>
+//             </Col>
+//           </Row>
+//         </Card>
+//       ) : (
+//         <Card
+//           style={{
+//             marginTop: 24,
+//             borderRadius: 16,
+//             border: '1px dashed #bbf7d0',
+//             background: '#f0fdf4'
+//           }}
+//           bodyStyle={{ padding: 18 }}
+//         >
+//           <Text strong style={{ color: '#166534' }}>
+//             Click "Run Simulation" to reveal projected improvements.
+//           </Text>
+//         </Card>
+//       )}
+//     </Card>
+//   );
+// }
+
+
+
+import React from 'react';
+import { Card, Row, Col, Typography, Select, Segmented, Statistic } from 'antd';
+
+const { Text } = Typography;
 
 export default function ProjectedImpactSummary({
   selectedCity,
@@ -11,117 +229,257 @@ export default function ProjectedImpactSummary({
   zones,
   selectedZoneId,
   setSelectedZoneId,
+  droughtMode,
+  setDroughtMode,
+  droughtOptions,
   selectedZone,
   projection,
   timeHorizon,
   setTimeHorizon,
   isSimulating,
-  simulated,
-  runSimulation
+  simulated
 }) {
-  
+  const showProjected = simulated && projection;
+
   return (
-    <Card 
-      style={{ borderRadius: 16, boxShadow: '0 8px 24px rgba(0,0,0,0.03)', border: '1px solid #f1f5f9', height: '100%' }}
-      styles={{ body: { padding: 0, height: '100%', display: 'flex', flexDirection: 'column' } }}
+    <Card
+      style={{
+        borderRadius: 16,
+        boxShadow: '0 4px 12px rgba(0,0,0,0.02)',
+        border: '1px solid #f1f5f9',
+        height: '100%'
+      }}
+      bodyStyle={{
+        padding: 24,
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%'
+      }}
     >
-      {/* HEADER CONTROLS */}
-      <div style={{ padding: '24px 24px 20px', borderBottom: '1px solid #f1f5f9' }}>
-        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 24 }}>
-           <Select
-              value={selectedCity}
-              onChange={(v) => { setSelectedCity(v); setSelectedZoneId(''); }}
-              style={{ width: 140 }}
-              size="large"
-              options={cityOptions.map(c => ({ value: c, label: c.toUpperCase() }))}
-           />
-           <Select
-              value={selectedZoneId}
-              onChange={(v) => { setSelectedZoneId(v); }}
-              style={{ flex: 1, minWidth: 200 }}
-              size="large"
-              options={zones.map(z => ({ value: z.zone_id, label: z.zone_name }))}
-              disabled={zones.length === 0}
-           />
+      <Row gutter={[16, 16]}>
+        <Col span={8}>
+          <Select
+            value={selectedCity}
+            onChange={setSelectedCity}
+            style={{ width: '100%' }}
+            options={cityOptions.map((city) => ({
+              label: String(city).toUpperCase(),
+              value: city
+            }))}
+          />
+        </Col>
+
+        <Col span={16}>
+          <Select
+            value={selectedZoneId}
+            onChange={setSelectedZoneId}
+            style={{ width: '100%' }}
+            options={zones.map((z) => ({
+              label: z.zone_name || `Zone ${z.zone_id}`,
+              value: String(z.zone_id)
+            }))}
+          />
+        </Col>
+      </Row>
+
+      <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+        <Col span={24}>
+          <Select
+            value={droughtMode}
+            onChange={setDroughtMode}
+            style={{ width: '100%' }}
+            options={droughtOptions}
+          />
+        </Col>
+      </Row>
+
+      <Row gutter={[16, 20]} style={{ marginTop: 20 }}>
+        <Col span={6}>
+          <Statistic
+            title="Baseline Canopy"
+            value={selectedZone?.canopy ?? selectedZone?.tree_canopy_pct ?? 0}
+            precision={1}
+            suffix="%"
+          />
+        </Col>
+
+        <Col span={6}>
+          <Statistic
+            title="Baseline NDVI"
+            value={selectedZone?.ndvi ?? 0}
+            precision={2}
+          />
+        </Col>
+
+        <Col span={6}>
+          <Statistic
+            title="Telemetry LST"
+            value={selectedZone?.lst ?? selectedZone?.lst_c ?? 0}
+            precision={1}
+            suffix="°C"
+          />
+        </Col>
+
+        <Col span={6}>
+          <Statistic
+            title="Impact Score"
+            value={selectedZone?.impact ?? selectedZone?.impact_score ?? 0}
+            precision={3}
+          />
+        </Col>
+      </Row>
+
+      <Row gutter={[16, 16]} style={{ marginTop: 12 }}>
+        <Col span={12}>
+          <Statistic
+            title="Tree Allocation"
+            value={selectedZone?.trees ?? selectedZone?.required_trees ?? 0}
+          />
+        </Col>
+        <Col span={12}>
+          <Statistic
+            title="Climate Stress"
+            value={selectedZone?.climate_stress_level || 'N/A'}
+          />
+        </Col>
+      </Row>
+
+      <Card
+        size="small"
+        style={{
+          marginTop: 20,
+          borderRadius: 14,
+          background: '#f8fafc',
+          border: '1px solid #e2e8f0'
+        }}
+      >
+        <div
+          style={{
+            fontSize: 12,
+            fontWeight: 700,
+            color: '#64748b',
+            marginBottom: 14,
+            letterSpacing: 0.5
+          }}
+        >
+          FORECAST TIMELINE
         </div>
 
-        <Row gutter={[24, 24]}>
-           <Col span={6}><Statistic title={<Text type="secondary" style={{ fontSize: 13 }}>Baseline Canopy</Text>} value={selectedZone.canopy} suffix="%" valueStyle={{ fontSize: 22, fontWeight: 600, color: '#0f172a' }} /></Col>
-           <Col span={6}><Statistic title={<Text type="secondary" style={{ fontSize: 13 }}>Baseline NDVI</Text>} value={selectedZone.ndvi} precision={2} valueStyle={{ fontSize: 22, fontWeight: 600, color: '#0f172a' }} /></Col>
-           <Col span={6}><Statistic title={<Text type="secondary" style={{ fontSize: 13 }}>Telemetry LST</Text>} value={selectedZone.lst} suffix="°C" valueStyle={{ fontSize: 22, fontWeight: 600, color: '#0f172a' }} /></Col>
-           <Col span={6}><Statistic title={<Text type="secondary" style={{ fontSize: 13 }}>Impact Score</Text>} value={selectedZone.impact} precision={3} valueStyle={{ fontSize: 22, fontWeight: 600, color: '#0f172a' }} /></Col>
-        </Row>
-      </div>
+        <Segmented
+          block
+          value={timeHorizon}
+          onChange={setTimeHorizon}
+          options={[
+            { label: '6 Months', value: 6 },
+            { label: '1 Year', value: 12 },
+            { label: '5 Years', value: 60 },
+            { label: '10 Years', value: 120 }
+          ]}
+        />
+      </Card>
 
-      {/* SIMULATION ACTION AREA */}
-      <div style={{ padding: '24px', background: '#f8fafc', borderBottom: '1px solid #f1f5f9', flexGrow: 1 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-           <div>
-              <Text strong style={{ display: 'block', fontSize: 12, letterSpacing: '0.5px', textTransform: 'uppercase', color: '#64748b', marginBottom: 8 }}>Forecast Timeline</Text>
-              <Segmented 
-                options={[
-                  { label: '6 Months', value: 6 }, 
-                  { label: '1 Year', value: 12 }, 
-                  { label: '5 Years', value: 60 }, 
-                  { label: '10 Years', value: 120 }
-                ]}
-                value={timeHorizon}
-                onChange={setTimeHorizon}
-                style={{ background: '#e2e8f0', padding: 4, borderRadius: 8 }}
-              />
-           </div>
-           <Button 
-             type="primary" 
-             size="large" 
-             icon={isSimulating ? <Spin size="small" /> : <PlayCircleOutlined />} 
-             loading={isSimulating}
-             onClick={runSimulation}
-             style={{ borderRadius: 8, padding: '0 32px', background: '#2563eb', fontWeight: 600, height: 44, boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)' }}
-           >
-             {isSimulating ? 'Computing...' : 'Run Simulation'}
-           </Button>
-        </div>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'stretch', marginTop: 24 }}>
+        {showProjected ? (
+          <Card
+            style={{
+              width: '100%',
+              borderRadius: 16,
+              border: '1px solid #dcfce7',
+              background: '#f0fdf4',
+              height: '100%'
+            }}
+            bodyStyle={{
+              padding: 18,
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+              <Text strong style={{ color: '#166534' }}>Projected Improvements</Text>
+              <Text style={{ fontSize: 12, color: '#16a34a' }}>• Live View</Text>
+            </div>
 
-      </div>
+            <Row gutter={[12, 12]}>
+              <Col span={8}>
+                <Card
+                  size="small"
+                  style={{
+                    borderRadius: 12,
+                    border: '1px solid #bbf7d0',
+                    background: '#f0fdf4'
+                  }}
+                >
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#166534', marginBottom: 6 }}>
+                    CANOPY GAIN
+                  </div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: '#15803d' }}>
+                    +{projection.canopyGain.toFixed(1)}%
+                  </div>
+                </Card>
+              </Col>
 
-      {/* RESULTS DISPLAY */}
-      <div style={{ padding: '24px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 20 }}>
-           <ThunderboltOutlined style={{ color: '#10b981', fontSize: 18, marginRight: 8 }} />
-           <Title level={5} style={{ margin: 0, fontWeight: 600, color: '#0f172a' }}>
-              Projected Improvements
-           </Title>
-           {simulated && <Tag color="success" style={{ marginLeft: 12, borderRadius: 4, border: 'none' }}>Data Generated</Tag>}
-        </div>
-        
-        <Row gutter={[16, 16]}>
-          <Col span={8}>
-            <Card size="small" bodyStyle={{ padding: '16px' }} style={{ borderRadius: 12, background: simulated ? '#effcf6' : '#f8fafc', border: simulated ? '1px solid #a7f3d0' : '1px solid #f1f5f9', transition: 'all 0.3s' }}>
-              <Text style={{ fontSize: 13, color: '#64748b', fontWeight: 500 }}>Canopy Gain</Text>
-              <div style={{ marginTop: 8, height: 32, display: 'flex', alignItems: 'center' }}>
-                {isSimulating ? <Spin size="small" /> : !simulated ? <Text disabled style={{ fontSize: 24, color: '#cbd5e1' }}>—</Text> : <Text strong style={{ fontSize: 28, color: '#059669', letterSpacing: '-0.5px' }}>+{projection.canopyGain.toFixed(1)}%</Text>}
-              </div>
-            </Card>
-          </Col>
-          <Col span={8}>
-            <Card size="small" bodyStyle={{ padding: '16px' }} style={{ borderRadius: 12, background: simulated ? '#eff6ff' : '#f8fafc', border: simulated ? '1px solid #bfdbfe' : '1px solid #f1f5f9', transition: 'all 0.3s' }}>
-              <Text style={{ fontSize: 13, color: '#64748b', fontWeight: 500 }}>NDVI Increase</Text>
-              <div style={{ marginTop: 8, height: 32, display: 'flex', alignItems: 'center' }}>
-                {isSimulating ? <Spin size="small" /> : !simulated ? <Text disabled style={{ fontSize: 24, color: '#cbd5e1' }}>—</Text> : <Text strong style={{ fontSize: 28, color: '#2563eb', letterSpacing: '-0.5px' }}>+{projection.ndviGain.toFixed(2)}</Text>}
-              </div>
-            </Card>
-          </Col>
-          <Col span={8}>
-            <Card size="small" bodyStyle={{ padding: '16px' }} style={{ borderRadius: 12, background: simulated ? '#fef2f2' : '#f8fafc', border: simulated ? '1px solid #fecaca' : '1px solid #f1f5f9', transition: 'all 0.3s' }}>
-              <Text style={{ fontSize: 13, color: '#64748b', fontWeight: 500 }}>Est. Cooling</Text>
-              <div style={{ marginTop: 8, height: 32, display: 'flex', alignItems: 'center' }}>
-                {isSimulating ? <Spin size="small" /> : !simulated ? <Text disabled style={{ fontSize: 24, color: '#cbd5e1' }}>—</Text> : <Text strong style={{ fontSize: 28, color: '#dc2626', letterSpacing: '-0.5px' }}>-{projection.coolingBenefit.toFixed(1)}°C</Text>}
-              </div>
-            </Card>
-          </Col>
-        </Row>
+              <Col span={8}>
+                <Card
+                  size="small"
+                  style={{
+                    borderRadius: 12,
+                    border: '1px solid #bbf7d0',
+                    background: '#f0fdf4'
+                  }}
+                >
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#166534', marginBottom: 6 }}>
+                    NDVI INCREASE
+                  </div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: '#15803d' }}>
+                    +{projection.ndviGain.toFixed(2)}
+                  </div>
+                </Card>
+              </Col>
+
+              <Col span={8}>
+                <Card
+                  size="small"
+                  style={{
+                    borderRadius: 12,
+                    border: '1px solid #bfdbfe',
+                    background: '#eff6ff'
+                  }}
+                >
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#1d4ed8', marginBottom: 6 }}>
+                    COOLING RELIEF
+                  </div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: '#2563eb' }}>
+                    -{projection.coolingBenefit.toFixed(1)}°C
+                  </div>
+                </Card>
+              </Col>
+            </Row>
+          </Card>
+        ) : (
+          <Card
+            style={{
+              width: '100%',
+              borderRadius: 16,
+              border: '1px dashed #bbf7d0',
+              background: '#f0fdf4',
+              height: '100%'
+            }}
+            bodyStyle={{
+              padding: 18,
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <Text strong style={{ color: '#166534' }}>
+              Click "Run Simulation" to reveal projected improvements.
+            </Text>
+          </Card>
+        )}
       </div>
-      
     </Card>
   );
 }

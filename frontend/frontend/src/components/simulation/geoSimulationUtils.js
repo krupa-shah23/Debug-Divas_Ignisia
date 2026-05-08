@@ -53,10 +53,10 @@ export const findFeatureForZone = (geojsonData, selectedZone) => {
   // Fallback: pick a stable feature based on zone_id hash / index
   const fallbackIndex = selectedZone?.zone_id
     ? Math.abs(
-        String(selectedZone.zone_id)
-          .split('')
-          .reduce((acc, ch) => acc + ch.charCodeAt(0), 0)
-      ) % features.length
+      String(selectedZone.zone_id)
+        .split('')
+        .reduce((acc, ch) => acc + ch.charCodeAt(0), 0)
+    ) % features.length
     : 0;
 
   return features[fallbackIndex] || features[0];
@@ -81,7 +81,7 @@ export const generatePlantingPoints = (feature, treeCount) => {
   if (!feature) return [];
 
   const bbox = turf.bbox(feature);
-  const visualCount = Math.min(16, Math.max(6, Math.round(treeCount / 3)));
+  const visualCount = treeCount;
 
   const points = [];
   let attempts = 0;

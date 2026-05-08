@@ -1,121 +1,159 @@
-import React, { useEffect, useState, useMemo } from "react";
-import { Typography, Space, Skeleton, Select, Card, Badge, Divider } from "antd";
-import WorkerHeatBurden from "../components/WorkerHeatBurden";
-import SeasonPlanner from "../components/SeasonPlanner";
-import { loadCityScoredZones } from "../utils/dataloader";
+import React, { useEffect, useMemo, useState } from 'react';
+import { Typography, Space, Skeleton, Select, Card, Divider, Alert } from 'antd';
+import WorkerHeatBurden from '../components/WorkerHeatBurden';
+import SeasonPlanner from '../components/SeasonPlanner';
+import { loadCityScoredZones } from '../utils/dataloader';
 
 const { Title, Text } = Typography;
 
 const cityList = [
-  "ahmedabad", "bangalore", "chennai", "delhi", "hyderabad",
-  "indore", "jaipur", "kanpur", "kolkata", "lucknow",
-  "mumbai", "nagpur", "pune", "surat", "vadodara"
+  'ahmedabad', 'bangalore', 'chennai', 'delhi', 'hyderabad',
+  'indore', 'jaipur', 'kanpur', 'kolkata', 'lucknow',
+  'mumbai', 'nagpur', 'pune', 'surat', 'vadodara'
 ];
 
 export default function HumanImpact() {
-  const [selectedCity, setSelectedCity] = useState("pune");
+  const [selectedCity, setSelectedCity] = useState('pune');
   const [zones, setZones] = useState([]);
   const [selectedZoneId, setSelectedZoneId] = useState(null);
   const [loading, setLoading] = useState(false);
-
-  // Generates a unique seed for each city to ensure distinct randomization
-  const citySeed = useMemo(() => {
-    return selectedCity.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  }, [selectedCity]);
+  const [error, setError] = useState('');
 
   useEffect(() => {
+    let active = true;
+
     const fetchZones = async () => {
       setLoading(true);
+      setError('');
+
       try {
         const fetchedZones = await loadCityScoredZones(selectedCity);
-        // Normalize fields and inject city-specific jitter
-        const normalized = fetchedZones.map((z, idx) => ({
-          ...z,
-          zone_id: String(z.zone_id || z.Zone_ID || idx),
-          lst_c: Number(z.lst_c || z.LST || 33.0) + (citySeed % 3),
-          ndvi: Number(z.ndvi || z.NDVI || 0.25)
+        if (!active) {
+          return;
+        }
+
+        const normalized = fetchedZones.map((zone, index) => ({
+          ...zone,
+          zone_id: String(zone.zone_id || zone.Zone_ID || index),
+          lst_c: Number.isFinite(Number(zone.lst_c ?? zone.LST)) ? Number(zone.lst_c ?? zone.LST) : null,
+          ndvi: Number.isFinite(Number(zone.ndvi ?? zone.NDVI)) ? Number(zone.ndvi ?? zone.NDVI) : null
         }));
+
         setZones(normalized);
-        if (normalized.length > 0) setSelectedZoneId(normalized[0].zone_id);
-      } catch (e) { console.error("Fetch Error:", e); } finally { setLoading(false); }
+        if (normalized.length > 0) {
+          setSelectedZoneId(normalized[0].zone_id);
+        }
+      } catch (fetchError) {
+        if (!active) {
+          return;
+        }
+
+        console.error('Fetch Error:', fetchError);
+        setError(fetchError instanceof Error ? fetchError.message : 'Failed to load human impact telemetry');
+        setZones([]);
+        setSelectedZoneId(null);
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
     };
+
     fetchZones();
-  }, [selectedCity, citySeed]);
 
-  const selectedZone = zones.find(z => String(z.zone_id) === String(selectedZoneId)) || zones[0] || {};
-  const zoneIndex = zones.findIndex(z => String(z.zone_id) === String(selectedZoneId));
+    return () => {
+      active = false;
+    };
+  }, [selectedCity]);
 
-  // Calculate unique temperature per zone selection
-  const derivedLST = +((Number(selectedZone.lst_c) || 34.0) + (zoneIndex * 0.12)).toFixed(1);
+  const selectedZone = zones.find((zone) => String(zone.zone_id) === String(selectedZoneId)) || zones[0] || {};
+  const minLST = zones.length > 0 ? Math.min(...zones.map((zone) => zone.lst_c).filter(Number.isFinite)) : null;
+  const maxLST = zones.length > 0 ? Math.max(...zones.map((zone) => zone.lst_c).filter(Number.isFinite)) : null;
 
-  // Calculate city bounds for relative scaling
-  const minLST = zones.length > 0 ? Math.min(...zones.map(z => z.lst_c)) : 30;
-  const maxLST = zones.length > 0 ? Math.max(...zones.map(z => z.lst_c)) : 45;
+  const regionalTelemetry = useMemo(() => {
+    const lstValues = zones.map((zone) => zone.lst_c).filter(Number.isFinite);
+    const ndviValues = zones.map((zone) => zone.ndvi).filter(Number.isFinite);
+    return {
+      avgLST: lstValues.length ? lstValues.reduce((sum, value) => sum + value, 0) / lstValues.length : null,
+      avgNDVI: ndviValues.length ? ndviValues.reduce((sum, value) => sum + value, 0) / ndviValues.length : null,
+    };
+  }, [zones]);
 
   return (
-    <div style={{ padding: "24px", background: '#f8fafc', minHeight: '100vh' }}>
-      
-      {/* HEADER SECTION */}
-      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
-         <Title level={2} style={{ margin: 0, fontWeight: 700, letterSpacing: '-0.5px' }}>Human Impact Analysis</Title>
-         <div style={{ background: '#fef2f2', padding: '6px 16px', borderRadius: 20, display: 'flex', alignItems: 'center', border: '1px solid #fecaca' }}>
-            <Badge status="processing" color="#ef4444" style={{ marginRight: 8 }} />
-            <Text strong style={{ color: '#ef4444', fontSize: 13, letterSpacing: '0.5px' }}>LIVE SENSOR FEED</Text>
-         </div>
-      </div>
-
-      {/* FILTER CONTROLS */}
-      <Card 
-         style={{ marginBottom: 32, borderRadius: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.02)', border: 'none' }}
-         bodyStyle={{ padding: '20px 24px' }}
+    <div style={{ background: 'transparent' }}>
+      <Card
+        style={{ marginBottom: 40, borderRadius: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.02)', border: '1px solid #f1f5f9' }}
+        bodyStyle={{ padding: '24px 32px' }}
       >
-        <Space size="large" align="center" wrap>
+        <Space size={32} align="center" wrap>
           <div>
-             <Text type="secondary" strong style={{ display: 'block', fontSize: 12, marginBottom: 4, textTransform: 'uppercase' }}>Select Region</Text>
-             <Select
-               value={selectedCity}
-               style={{ width: 180 }}
-               size="large"
-               onChange={setSelectedCity}
-               options={cityList.map(c => ({ label: c.toUpperCase(), value: c }))}
-             />
+            <Text type="secondary" strong style={{ display: 'block', fontSize: 12, marginBottom: 4, textTransform: 'uppercase' }}>Select Region</Text>
+            <Select
+              value={selectedCity}
+              style={{ width: 180 }}
+              size="large"
+              onChange={setSelectedCity}
+              options={cityList.map((city) => ({ label: city.toUpperCase(), value: city }))}
+            />
           </div>
           <div>
-             <Text type="secondary" strong style={{ display: 'block', fontSize: 12, marginBottom: 4, textTransform: 'uppercase' }}>Sector Scope</Text>
-             <Select
-               value={selectedZoneId}
-               style={{ width: 260 }}
-               size="large"
-               onChange={setSelectedZoneId}
-               disabled={loading || zones.length === 0}
-               options={zones.map(z => ({ label: z.zone_name || `Zone ${z.zone_id}`, value: z.zone_id }))}
-             />
+            <Text type="secondary" strong style={{ display: 'block', fontSize: 12, marginBottom: 4, textTransform: 'uppercase' }}>Sector Scope</Text>
+            <Select
+              value={selectedZoneId}
+              style={{ width: 260 }}
+              size="large"
+              onChange={setSelectedZoneId}
+              disabled={loading || zones.length === 0}
+              options={zones.map((zone) => ({ label: zone.zone_name || `Zone ${zone.zone_id}`, value: zone.zone_id }))}
+            />
           </div>
         </Space>
       </Card>
 
-      {/* MAIN CONTENT AREA */}
+      {error ? (
+        <Alert
+          type="warning"
+          showIcon
+          message="Human impact telemetry fallback"
+          description={error}
+          style={{ marginBottom: 24 }}
+        />
+      ) : null}
+
       {loading ? <Skeleton active paragraph={{ rows: 8 }} /> : (
         <>
           <div style={{ marginBottom: 40 }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', marginBottom: 20 }}>
-               <Title level={3} style={{ margin: 0, fontWeight: 700 }}>Climate Burden</Title>
-               <Divider type="vertical" style={{ margin: '0 16px' }} />
-               <Text type="secondary" style={{ fontSize: 16 }}>{selectedZone.zone_name || "Region Data"} • </Text>
-               <Text strong style={{ fontSize: 16, marginLeft: 8, color: '#0f172a' }}>LST {derivedLST}°C</Text>
-               <Text type="secondary" style={{ fontSize: 16, marginLeft: 8 }}>• NDVI {Number(selectedZone.ndvi || 0).toFixed(2)}</Text>
+            <div style={{ display: 'flex', alignItems: 'baseline', marginBottom: 20, flexWrap: 'wrap' }}>
+              <Title level={3} style={{ margin: 0, fontWeight: 700 }}>Climate Burden</Title>
+              <Divider type="vertical" style={{ margin: '0 16px' }} />
+              <Text type="secondary" style={{ fontSize: 16 }}>{selectedZone.zone_name || 'Region Data'} • </Text>
+              <Text strong style={{ fontSize: 16, marginLeft: 8, color: '#0f172a' }}>
+                LST {selectedZone.lst_c != null ? `${selectedZone.lst_c.toFixed(2)}C` : 'N/A'}
+              </Text>
+              <Text type="secondary" style={{ fontSize: 16, marginLeft: 8 }}>
+                • NDVI {selectedZone.ndvi != null ? selectedZone.ndvi.toFixed(3) : 'N/A'}
+              </Text>
+              <Text type="secondary" style={{ fontSize: 16, marginLeft: 8 }}>
+                • Regional LST {regionalTelemetry.avgLST != null ? `${regionalTelemetry.avgLST.toFixed(2)}C` : 'N/A'}
+              </Text>
+              <Text type="secondary" style={{ fontSize: 16, marginLeft: 8 }}>
+                • Regional NDVI {regionalTelemetry.avgNDVI != null ? regionalTelemetry.avgNDVI.toFixed(3) : 'N/A'}
+              </Text>
             </div>
-            
+
             <WorkerHeatBurden
-              lst={derivedLST}
-              zoneIndex={zoneIndex}
-              citySeed={citySeed}
+              lst={selectedZone.lst_c}
+              ndvi={selectedZone.ndvi}
+              droughtIndex={selectedZone.drought_index}
+              waterFeasible={selectedZone.water_feasible ?? selectedZone.water_ok}
               minLST={minLST}
               maxLST={maxLST}
             />
           </div>
-          
-          <SeasonPlanner zones={zones} citySeed={citySeed} />
+
+          <div style={{ marginTop: 48 }}>
+            <SeasonPlanner zones={zones} />
+          </div>
         </>
       )}
     </div>

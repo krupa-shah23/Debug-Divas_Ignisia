@@ -1,137 +1,92 @@
-import { useMemo } from 'react';
+import { ensureCelsiusNumber } from '../../utils/lst';
+import { deriveCanopyProxyFromNdvi, toFiniteNumber } from '../../utils/telemetry';
 
-// Seeded pseudo-random generator (0.0 to 1.0)
-export function seededValue(seedStr, min, max) {
-  let hash = 0;
-  for (let i = 0; i < seedStr.length; i++) {
-    hash = (hash * 31 + seedStr.charCodeAt(i)) >>> 0;
+const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
+export function fixLst(value) {
+  return ensureCelsiusNumber(value, null);
+}
+
+function deriveZoneReason(zone) {
+  if (zone?.reason) {
+    return zone.reason;
   }
-  const normalized = (hash % 1000) / 1000;
-  return min + normalized * (max - min);
+
+  if (Number(zone.drought_index ?? 0) > 0.7) {
+    return 'High drought risk due to climate stress';
+  }
+
+  if (Number(zone.soil_moisture ?? 0) < 0.2) {
+    return 'Low soil moisture impacting vegetation survival';
+  }
+
+  if (zone.water_feasible === false || zone.water_ok === false) {
+    return 'Water infrastructure constraints';
+  }
+
+  if (Number(zone.NDVI ?? zone.ndvi ?? 0) < 0.3) {
+    return 'Low vegetation density detected';
+  }
+
+  return 'Favorable conditions for tree plantation';
 }
 
-// Ensure data is numeric
-const num = (v, fallback) => (Number.isFinite(Number(v)) ? Number(v) : fallback);
-
-// Convert Kelvin to Celsius if LST looks like Kelvin
-export function fixLst(val) {
-  const n = num(val, 36.5);
-  return n > 100 ? n - 273.15 : n;
-}
-
-// Compute Impact fallback
-export function computeFallbackImpact({ canopy, ndvi, lst }) {
-  const canopyNorm = Math.max(0, Math.min(1, 1 - canopy / 100));
-  const ndviNorm = Math.max(0, Math.min(1, 1 - ndvi));
-  const lstNorm = Math.max(0, Math.min(1, (lst - 25) / 20));
-  const score = 0.35 * canopyNorm + 0.25 * ndviNorm + 0.4 * lstNorm;
-  return Number(score.toFixed(3));
-}
-
-// Master normalization function for baseline
-export function normalizeZoneMetrics(z, index) {
-  const rawCanopy = z.tree_canopy_pct ?? z.canopy_pct ?? z.canopy ?? z.canopyPercent ?? 2.5;
-  const rawNdvi = z.ndvi ?? z.avg_ndvi ?? z.ndvi_mean ?? 0.25;
-  const rawLst = z.lst ?? z.lst_c ?? z.lst_mean ?? z.avg_lst ?? 310;
-  const rawImpact = z.impact_score ?? z.score ?? z.priority_score ?? z.benefit_score ?? null;
-
-  const lstC = fixLst(rawLst);
-  const canopy = num(rawCanopy, 0);
-  const ndvi = num(rawNdvi, 0.25);
-
-  const impactValue = rawImpact !== null && Number.isFinite(Number(rawImpact))
-    ? Number(Number(rawImpact).toFixed(3))
-    : computeFallbackImpact({ canopy, ndvi, lst: lstC });
-
-  const zoneId = String(z.zone_id || z.Zone_ID || z.id || z.zone || `Z-${index}`);
+export function normalizeZoneMetrics(zone, index) {
+  const zoneId = String(zone?.zone_id || zone?.Zone_ID || zone?.id || zone?.zone || `Z-${index + 1}`);
+  const ndvi = toFiniteNumber(zone?.NDVI ?? zone?.ndvi, null);
+  const lst = fixLst(zone?.LST ?? zone?.lst ?? zone?.lst_c ?? zone?.temp_before);
+  const canopy = toFiniteNumber(
+    zone?.tree_canopy_pct ?? zone?.canopy_pct ?? zone?.canopy,
+    deriveCanopyProxyFromNdvi(ndvi)
+  );
+  const trees = Math.max(0, Math.round(toFiniteNumber(zone?.trees ?? zone?.required_trees ?? zone?.recommended_trees, 0)));
+  const impact = toFiniteNumber(zone?.impact_score ?? zone?.priority_score ?? zone?.score, 0);
 
   return {
-    ...z,
+    ...zone,
     zone_id: zoneId,
-    zone_name: z.zone_name || z.name || `Zone ${zoneId}`,
-    canopy: Number(canopy.toFixed(1)),
-    ndvi: Number(ndvi.toFixed(2)),
-    lst: Number(lstC.toFixed(1)),
-    impact: impactValue
+    zone_name: zone?.zone_name || zone?.name || `Zone ${zoneId}`,
+    canopy: canopy ?? 0,
+    tree_canopy_pct: canopy ?? 0,
+    ndvi: ndvi ?? 0,
+    NDVI: ndvi,
+    lst: lst ?? 0,
+    lst_c: lst,
+    LST: lst,
+    impact,
+    impact_score: impact,
+    trees,
+    water_access: zone?.water_access ?? zone?.water_available ?? zone?.water_feasible ?? zone?.water_ok ?? true,
+    reason: deriveZoneReason(zone),
   };
 }
 
-// Heuristic Fallback Generator for Post-Simulation
-export function generateHeuristicSimulation(zone, timeHorizon) {
-  const seed = String(zone.zone_id);
-  
-  const baseSpots = Math.round(seededValue(seed + 'spots', 8, 28));
-  
-  let canopyGainMin, canopyGainMax, ndviGainMin, ndviGainMax, lstDropMin, lstDropMax;
+export function generateHeuristicSimulation(zone, timeHorizon, options = {}) {
+  const droughtMode = options.droughtMode || 'normal';
+  const baselineLst = toFiniteNumber(zone?.lst ?? zone?.LST, 0);
+  const baselineNdvi = toFiniteNumber(zone?.ndvi ?? zone?.NDVI, 0);
+  const baselineCanopy = toFiniteNumber(zone?.canopy ?? zone?.tree_canopy_pct, deriveCanopyProxyFromNdvi(baselineNdvi) ?? 0);
+  const treeCount = Math.max(0, Math.round(toFiniteNumber(zone?.trees ?? zone?.required_trees, 0)));
+  const waterFactor = zone?.water_access === false || zone?.water_feasible === false ? 0.82 : 1;
+  const droughtPenalty = droughtMode === 'severe' ? 0.72 : droughtMode === 'moderate' ? 0.86 : 1;
+  const horizonFactor = timeHorizon === 6 ? 0.55 : timeHorizon === 12 ? 1 : timeHorizon === 60 ? 1.85 : 2.55;
+  const heatFactor = clamp((baselineLst - 30) / 12, 0.35, 1.25);
+  const canopyNeedFactor = clamp((0.55 - baselineNdvi) / 0.55, 0.25, 1.2);
+  const growthFactor = horizonFactor * waterFactor * droughtPenalty * heatFactor * canopyNeedFactor;
 
-  if (timeHorizon === 6) { // 6 Months
-    canopyGainMin = 1.0; canopyGainMax = 2.5;
-    ndviGainMin = 0.01; ndviGainMax = 0.04;
-    lstDropMin = 0.5; lstDropMax = 1.2;
-  } else if (timeHorizon === 12) { // 1 Year
-    canopyGainMin = 2.0; canopyGainMax = 4.0;
-    ndviGainMin = 0.03; ndviGainMax = 0.07;
-    lstDropMin = 1.0; lstDropMax = 2.0;
-  } else if (timeHorizon === 60) { // 5 Years
-    canopyGainMin = 5.0; canopyGainMax = 10.0;
-    ndviGainMin = 0.08; ndviGainMax = 0.15;
-    lstDropMin = 2.5; lstDropMax = 4.5;
-  } else { // 10 Years (120 months)
-    canopyGainMin = 10.0; canopyGainMax = 18.0;
-    ndviGainMin = 0.15; ndviGainMax = 0.28;
-    lstDropMin = 4.0; lstDropMax = 7.0;
-  }
-
-  const gainCanopy = seededValue(seed + 'c', canopyGainMin, canopyGainMax);
-  const gainNdvi = seededValue(seed + 'n', ndviGainMin, ndviGainMax);
-  const dropLst = seededValue(seed + 'l', lstDropMin, lstDropMax);
+  const candidateSpots = Math.max(treeCount, Math.round(treeCount * horizonFactor * 0.5));
+  const canopyGain = clamp((treeCount * 0.08) * growthFactor, 0.5, 24);
+  const ndviGain = clamp((treeCount * 0.0018) * growthFactor, 0.01, 0.32);
+  const coolingBenefit = clamp((treeCount * 0.018) * growthFactor * clamp(baselineLst / 36, 0.75, 1.35), 0.2, 8);
 
   return {
-    candidateSpots: baseSpots,
-    visibleTrees: Math.round(baseSpots * seededValue(seed + 'v', 0.75, 0.90)),
-    canopyGain: gainCanopy,
-    ndviGain: gainNdvi,
-    coolingBenefit: dropLst,
-    canopyAfter: Math.min(100, zone.canopy + gainCanopy),
-    ndviAfter: Math.min(1.0, zone.ndvi + gainNdvi),
-    lstAfter: Math.max(20, zone.lst - dropLst),
-  };
-}
-
-// Generate Mock Planting Coordinates around a center
-export function generatePlantingCoordinates(center, count, seed) {
-  return Array.from({ length: count }).map((_, i) => {
-    const angle = seededValue(`${seed}a${i}`, 0, Math.PI * 2);
-    const radius = seededValue(`${seed}r${i}`, 0.0005, 0.003); // approx 50m to 300m
-    const lat = center[0] + radius * Math.cos(angle);
-    const lng = center[1] + radius * Math.sin(angle);
-    return {
-      id: `P-${i+1}`,
-      lat: Number(lat.toFixed(6)),
-      lng: Number(lng.toFixed(6)),
-      suitability: seededValue(`${seed}s${i}`, 75, 95).toFixed(1) + '%'
-    };
-  });
-}
-
-// Generate Mock Circular Polygon for GeoJSON fallback
-export function createMockGeoJSONPolygon(center) {
-  const points = 12;
-  const radius = 0.0035;
-  const coordinates = [];
-  for (let i = 0; i <= points; i++) {
-    const angle = (i / points) * Math.PI * 2;
-    coordinates.push([
-      center[1] + radius * Math.sin(angle), // Lng
-      center[0] + radius * Math.cos(angle)  // Lat
-    ]);
-  }
-  return {
-    type: "Feature",
-    properties: { name: "Generated Demo ROI" },
-    geometry: {
-      type: "Polygon",
-      coordinates: [coordinates]
-    }
+    candidateSpots,
+    visibleTrees: Math.max(0, Math.round(candidateSpots * 0.85)),
+    canopyGain: Number(canopyGain.toFixed(1)),
+    ndviGain: Number(ndviGain.toFixed(3)),
+    coolingBenefit: Number(coolingBenefit.toFixed(2)),
+    canopyAfter: Number(clamp(baselineCanopy + canopyGain, 0, 100).toFixed(1)),
+    ndviAfter: Number(clamp(baselineNdvi + ndviGain, 0, 1).toFixed(3)),
+    lstAfter: Number(Math.max(20, baselineLst - coolingBenefit).toFixed(2)),
   };
 }

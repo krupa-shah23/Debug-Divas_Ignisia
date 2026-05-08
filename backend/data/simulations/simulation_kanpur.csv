@@ -1,0 +1,4 @@
+zone_id,trees,temp_before,temp_after,temp_reduction,ndvi_before,ndvi_after
+Z1,120,40.59,36.6,3.99,0.5,0.62
+Z3,128,40.59,35.87,4.71,0.5,0.628
+Z2,109,40.59,36.53,4.06,0.5,0.609

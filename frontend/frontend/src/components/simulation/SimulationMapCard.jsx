@@ -1,11 +1,55 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Card, Typography, Row, Col, Tag, Spin, Button, Drawer, Alert, Table, Space } from 'antd';
-import { AimOutlined, PlusOutlined, MinusOutlined } from '@ant-design/icons';
-import { MapContainer, TileLayer, GeoJSON, CircleMarker, Popup } from 'react-leaflet';
-import { createMockGeoJSONPolygon, generatePlantingCoordinates } from './simulationEngine';
-import { findFeatureForZone, getFeatureBounds, getFeatureCenter } from './geoSimulationUtils';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Card, Typography, Button, Modal, message } from 'antd';
+import { PlayCircleOutlined, AimOutlined } from '@ant-design/icons';
+import { MapContainer, TileLayer, Polygon, CircleMarker, Popup, useMap } from 'react-leaflet';
 
-const { Title, Text } = Typography;
+import 'leaflet/dist/leaflet.css';
+import {
+  findFeatureForZone,
+  getFeatureBounds,
+  getFeatureCenter,
+  generatePlantingPoints
+} from './geoSimulationUtils';
+
+const { Title } = Typography;
+
+function getColor(zone) {
+  if (zone?.selected) return '#22c55e';
+  if (Number(zone?.drought_index ?? 0) > 0.7) return '#ef4444';
+  if (Number(zone?.drought_index ?? 0) > 0.5) return '#f59e0b';
+  return '#3b82f6';
+}
+
+function buildZonePopup(zone) {
+  if (!zone) return null;
+
+  return (
+    <div style={{ minWidth: 220, lineHeight: 1.55 }}>
+      <div><strong>Zone:</strong> {zone.zone_id}</div>
+      <div><strong>NDVI:</strong> {zone.NDVI != null ? Number(zone.NDVI).toFixed(3) : 'N/A'}</div>
+      <div><strong>LST:</strong> {zone.LST != null ? `${Number(zone.LST).toFixed(2)} C` : 'N/A'}</div>
+      <div><strong>Score:</strong> {Number(zone.priority_score ?? 0).toFixed(2)}</div>
+      <div><strong>Drought:</strong> {Number(zone.drought_index ?? 0).toFixed(2)}</div>
+      <div><strong>Trees:</strong> {Number(zone.trees ?? 0)}</div>
+      <div style={{ marginTop: 10 }}>
+        <strong>Reason:</strong>
+        <div>{zone.reason || 'No explanation available'}</div>
+      </div>
+    </div>
+  );
+}
+
+function FitBounds({ bounds }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (bounds) {
+      map.fitBounds(bounds, { padding: [20, 20] });
+    }
+  }, [bounds, map]);
+
+  return null;
+}
 
 export default function SimulationMapCard({
   selectedZone,
@@ -14,253 +58,337 @@ export default function SimulationMapCard({
   usedMockGeo,
   simulated,
   isSimulating,
-  timeHorizon
+  timeHorizon,
+  onRunSimulation
 }) {
-  const mapBeforeRef = useRef(null);
-  const mapAfterRef = useRef(null);
-  const [drawerVisible, setDrawerVisible] = useState(false);
+  const [showCoordinatesModal, setShowCoordinatesModal] = useState(false);
 
-  // 1. Resolve GeoJSON polygon matching
-  const matchingFeature = useMemo(() => {
-    if (usedMockGeo || !geoData || !geoData.features) return null;
-    return findFeatureForZone(geoData, selectedZone);
-  }, [geoData, selectedZone, usedMockGeo]);
-
-  // 2. Compute Center
-  const center = useMemo(() => {
-    if (matchingFeature) return getFeatureCenter(matchingFeature);
-    return [18.5204, 73.8567]; // default Pune
-  }, [matchingFeature]);
-
-  // 3. Fallback or Real ROI
-  const activeFeature = useMemo(() => {
-    if (matchingFeature) return matchingFeature;
-    return createMockGeoJSONPolygon(center);
-  }, [matchingFeature, center]);
-
-  const bounds = useMemo(() => {
-    return getFeatureBounds(activeFeature);
-  }, [activeFeature]);
-
-  useEffect(() => {
-    const fitOpts = { padding: [20, 20], maxZoom: 15, animate: false };
-    if (bounds) {
-      setTimeout(() => {
-        if (mapBeforeRef.current) mapBeforeRef.current.fitBounds(bounds, fitOpts);
-        if (mapAfterRef.current) mapAfterRef.current.fitBounds(bounds, fitOpts);
-      }, 150);
+  const handleCopyCoordinates = async () => {
+    if (!plantingPoints.length) {
+      message.warning('No coordinates available to copy');
+      return;
     }
-  }, [bounds, activeFeature]);
 
-  // 4. Base Dots and Planted Dots
-  const simulatePoints = useMemo(() => {
-    if (!simulated) return [];
-    return generatePlantingCoordinates(center, projection.candidateSpots, selectedZone.zone_id);
-  }, [simulated, center, projection.candidateSpots, selectedZone.zone_id]);
-  
-  // 5. Timeline Tree Scale
-  const treeRadius = useMemo(() => {
-    if (timeHorizon <= 6) return 6;
-    if (timeHorizon <= 12) return 8;
-    if (timeHorizon <= 60) return 12;
-    return 16;
-  }, [timeHorizon]);
+    const text = plantingPoints
+      .map((point, index) => `Tree ${index + 1}: ${point.lat.toFixed(6)}, ${point.lng.toFixed(6)}`)
+      .join('\n');
 
-  // Zoom Handlers
-  const handleZoom = (mapRef, direction) => {
-    if (!mapRef.current) return;
-    if (direction === 'in') mapRef.current.zoomIn();
-    else mapRef.current.zoomOut();
+    try {
+      await navigator.clipboard.writeText(text);
+      message.success('Coordinates copied!');
+    } catch (err) {
+      message.error('Failed to copy coordinates');
+    }
   };
 
+  const selectedFeature = useMemo(() => {
+    if (!geoData || !selectedZone) return null;
+    return findFeatureForZone(geoData, selectedZone);
+  }, [geoData, selectedZone]);
+
+  const bounds = useMemo(() => {
+    return selectedFeature ? getFeatureBounds(selectedFeature) : null;
+  }, [selectedFeature]);
+
+  const center = useMemo(() => {
+    return selectedFeature ? getFeatureCenter(selectedFeature) : [18.5204, 73.8567];
+  }, [selectedFeature]);
+
+  const polygonCoords = useMemo(() => {
+    if (!selectedFeature?.geometry) return [];
+
+    const geom = selectedFeature.geometry;
+
+    if (geom.type === 'Polygon') {
+      return geom.coordinates[0].map(([lng, lat]) => [lat, lng]);
+    }
+
+    if (geom.type === 'MultiPolygon') {
+      return geom.coordinates[0][0].map(([lng, lat]) => [lat, lng]);
+    }
+
+    return [];
+  }, [selectedFeature]);
+
+  const plantingPoints = useMemo(() => {
+    if (!simulated || !projection || !selectedFeature) return [];
+    return generatePlantingPoints(selectedFeature, projection.candidateSpots || 12);
+  }, [simulated, projection, selectedFeature]);
+
+  const zoneColor = useMemo(() => getColor(selectedZone), [selectedZone]);
+
   return (
-    <Card 
-       style={{ borderRadius: 16, boxShadow: '0 8px 24px rgba(0,0,0,0.03)', border: '1px solid #f1f5f9', height: '100%' }}
-       bodyStyle={{ padding: '24px', height: '100%', display: 'flex', flexDirection: 'column' }}
-    >
-      <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <Title level={4} style={{ margin: 0, fontWeight: 700, letterSpacing: '-0.3px', color: '#0f172a' }}>ROI Intervention Maps</Title>
-          <div style={{ marginTop: 6 }}>
-            {!matchingFeature || usedMockGeo ? (
-              <Tag color="orange" style={{ border: 'none', borderRadius: 6 }}>Heuristic ROI Boundary</Tag>
-            ) : (
-              <Tag color="cyan" style={{ border: 'none', borderRadius: 6 }}>GIS Boundary Bound</Tag>
-            )}
+    <>
+      <Card
+        style={{
+          borderRadius: 16,
+          boxShadow: '0 4px 12px rgba(0,0,0,0.02)',
+          border: '1px solid #f1f5f9',
+          height: '100%'
+        }}
+        bodyStyle={{ padding: 20 }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <div>
+            <Title level={3} style={{ margin: 0, fontWeight: 700, color: '#0f172a' }}>
+              ROI Intervention Maps
+            </Title>
+            <div
+              style={{
+                display: 'inline-block',
+                marginTop: 8,
+                fontSize: 12,
+                padding: '4px 10px',
+                borderRadius: 999,
+                background: '#ccfbf1',
+                color: '#0f766e'
+              }}
+            >
+              GIS Boundary Bound
+            </div>
           </div>
+
+          <Button
+            type="primary"
+            size="large"
+            icon={<PlayCircleOutlined />}
+            onClick={onRunSimulation}
+            loading={isSimulating}
+            style={{
+              borderRadius: 999,
+              height: 48,
+              paddingInline: 24,
+              fontWeight: 700,
+              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+              border: 'none',
+              boxShadow: '0 8px 20px rgba(16,185,129,0.22)'
+            }}
+          >
+            Run Simulation
+          </Button>
         </div>
-        {usedMockGeo && <Alert type="info" message={<Text strong style={{ fontSize: 13 }}>Demo Map Mode</Text>} showIcon style={{ padding: '6px 12px', borderRadius: 8, border: 'none', background: '#eff6ff' }} />}
-      </div>
 
-      <Row gutter={24} style={{ flexGrow: 1, minHeight: 400 }}>
-        {/* LEFT MAP: BEFORE */}
-        <Col span={12} style={{ display: 'flex', flexDirection: 'column' }}>
-           <div style={{ paddingBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-             <Text strong style={{ fontSize: 15, color: '#334155' }}>Before Simulation</Text>
-             <Tag style={{ borderRadius: 12, border: 'none', background: '#f1f5f9', color: '#64748b' }}>Baseline State</Tag>
-           </div>
-           <div style={{ position: 'relative', flexGrow: 1, borderRadius: 16, overflow: 'hidden', border: '2px solid #e2e8f0', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)', background: '#f8fafc' }}>
-              
-              {/* Custom Zoom Controls */}
-              <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 1000, display: 'flex', flexDirection: 'column', gap: 4, background: '#fff', padding: 4, borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
-                 <Button type="text" size="small" icon={<PlusOutlined />} onClick={() => handleZoom(mapBeforeRef, 'in')} />
-                 <Button type="text" size="small" icon={<MinusOutlined />} onClick={() => handleZoom(mapBeforeRef, 'out')} />
-              </div>
-
-              <MapContainer 
-                 center={center} 
-                 zoom={14} 
-                 style={{ height: '100%', width: '100%', zIndex: 1 }}
-                 ref={mapBeforeRef}
-                 scrollWheelZoom={false}
-                 zoomControl={false}
-              >
-                 <TileLayer
-                   attribution='&copy; OpenStreetMap contributors'
-                   url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-                 />
-                 <GeoJSON 
-                    key={selectedZone.zone_id + 'before'} 
-                    data={activeFeature} 
-                    style={() => ({ color: '#94a3b8', weight: 2, fillColor: '#cbd5e1', fillOpacity: 0.15 })} 
-                 />
-              </MapContainer>
-           </div>
-        </Col>
-
-        {/* RIGHT MAP: AFTER */}
-        <Col span={12} style={{ display: 'flex', flexDirection: 'column' }}>
-           <div style={{ paddingBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-             <Text strong style={{ fontSize: 15, color: simulated ? '#065f46' : '#334155' }}>After Simulation</Text>
-             <Tag color={simulated ? "green" : "default"} style={{ borderRadius: 12, border: 'none' }}>
-                {simulated ? `${projection.candidateSpots} Trees Planted` : 'Awaiting simulation...'}
-             </Tag>
-           </div>
-           <div style={{ position: 'relative', flexGrow: 1, borderRadius: 16, overflow: 'hidden', border: simulated ? '2px solid #34d399' : '2px solid #e2e8f0', boxShadow: simulated ? '0 4px 20px rgba(16, 185, 129, 0.15)' : 'inset 0 2px 4px rgba(0,0,0,0.02)', background: simulated ? '#ecfdf5' : '#f8fafc', transition: 'all 0.4s ease' }}>
-              {isSimulating && (
-                 <div style={{ position: 'absolute', inset: 0, zIndex: 1000, background: 'rgba(255,255,255,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(2px)' }}>
-                    <Spin size="large" tip={<div style={{ marginTop: 12, fontWeight: 500 }}>Computing Impact...</div>} />
-                 </div>
-              )}
-              
-              {/* Custom Zoom Controls */}
-              <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 1000, display: 'flex', flexDirection: 'column', gap: 4, background: '#fff', padding: 4, borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
-                 <Button type="text" size="small" icon={<PlusOutlined />} onClick={() => handleZoom(mapAfterRef, 'in')} />
-                 <Button type="text" size="small" icon={<MinusOutlined />} onClick={() => handleZoom(mapAfterRef, 'out')} />
-              </div>
-
-              <MapContainer 
-                 center={center} 
-                 zoom={14} 
-                 style={{ height: '100%', width: '100%', zIndex: 1 }}
-                 ref={mapAfterRef}
-                 scrollWheelZoom={false}
-                 zoomControl={false}
-              >
-                 <TileLayer
-                   attribution='&copy; OpenStreetMap contributors'
-                   url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-                 />
-                 
-                 <GeoJSON 
-                    key={selectedZone.zone_id + (simulated ? 'after' : 'after-wait')} 
-                    data={activeFeature} 
-                    style={() => ({
-                      color: simulated ? '#10b981' : '#94a3b8',
-                      weight: 2,
-                      fillColor: simulated ? '#34d399' : '#cbd5e1',
-                      fillOpacity: simulated ? 0.2 : 0.15
-                    })} 
-                 />
-
-                 {simulated && simulatePoints.map((pt) => (
-                   <CircleMarker
-                     key={pt.id}
-                     center={[pt.lat, pt.lng]}
-                     radius={treeRadius}
-                     pathOptions={{
-                       color: '#064e3b',
-                       fillColor: '#10b981',
-                       fillOpacity: 0.85,
-                       weight: treeRadius > 10 ? 2 : 1
-                     }}
-                   >
-                     <Popup className="premium-popup">
-                       <div style={{ padding: '4px 0' }}>
-                         <Text strong style={{ fontSize: 13, display: 'block', marginBottom: 4 }}>Tree Cluster {pt.id}</Text>
-                         <Text type="secondary" style={{ fontSize: 12, display: 'block' }}>Lat: {pt.lat}</Text>
-                         <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>Lng: {pt.lng}</Text>
-                         <Tag color="success" style={{ margin: 0, borderRadius: 4 }}>Survival Prob: {pt.suitability}</Tag>
-                       </div>
-                     </Popup>
-                   </CircleMarker>
-                 ))}
-              </MapContainer>
-
-              {/* EMBEDDED DYNAMIC FAB */}
-              <Button 
-                type="primary" 
-                size="middle"
-                shape="round"
-                icon={<AimOutlined />}
-                disabled={!simulated}
-                onClick={() => setDrawerVisible(true)}
+        <div style={{ display: 'grid', gridTemplateColumns: simulated ? '1fr 1fr' : '1fr', gap: 20 }}>
+          <div>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 10
+              }}
+            >
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#334155' }}>BEFORE SIMULATION</div>
+              <div
                 style={{
-                  position: 'absolute',
-                  bottom: 16,
-                  right: 16,
-                  boxShadow: simulated ? '0 8px 16px rgba(16, 185, 129, 0.4)' : 'none',
-                  background: simulated ? '#10b981' : '#cbd5e1',
-                  color: '#fff',
-                  border: 'none',
-                  zIndex: 2000,
-                  fontWeight: 600,
-                  padding: '0 20px'
+                  fontSize: 12,
+                  fontWeight: 700,
+                  padding: '4px 10px',
+                  borderRadius: 999,
+                  background: '#f3f4f6',
+                  color: '#111827'
                 }}
               >
-                Coordinates
-              </Button>
-           </div>
-        </Col>
-      </Row>
+                Baseline State
+              </div>
+            </div>
 
-      <Drawer
-        title={<Text strong style={{ fontSize: 16 }}>Intervention Coordinates</Text>}
-        placement="right"
-        width={420}
-        onClose={() => setDrawerVisible(false)}
-        open={drawerVisible}
-        zIndex={10000}
-        bodyStyle={{ background: '#f8fafc', padding: 24 }}
-        headerStyle={{ borderBottom: '1px solid #f1f5f9' }}
+            <div
+              style={{
+                height: 430,
+                borderRadius: 16,
+                overflow: 'hidden',
+                border: '1px solid #cbd5e1'
+              }}
+            >
+              <MapContainer
+                center={center}
+                zoom={13}
+                style={{ height: '100%', width: '100%' }}
+                scrollWheelZoom={false}
+              >
+                <TileLayer
+                  url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                  attribution="&copy; OpenStreetMap contributors"
+                />
+                {bounds && <FitBounds bounds={bounds} />}
+                  {polygonCoords.length > 0 && (
+                    <Polygon
+                      positions={polygonCoords}
+                      pathOptions={{
+                        color: zoneColor,
+                        fillColor: zoneColor,
+                        fillOpacity: selectedZone?.selected ? 0.28 : 0.18,
+                        weight: selectedZone?.selected ? 4 : 2.5,
+                        dashArray: selectedZone?.selected ? '8 5' : undefined
+                      }}
+                    >
+                      <Popup>{buildZonePopup(selectedZone)}</Popup>
+                    </Polygon>
+                  )}
+              </MapContainer>
+            </div>
+          </div>
+
+          {simulated && (
+            <div>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: 10
+                }}
+              >
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#047857' }}>AFTER SIMULATION</div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    padding: '4px 10px',
+                    borderRadius: 999,
+                    background: '#ecfccb',
+                    color: '#65a30d'
+                  }}
+                >
+                  {projection?.candidateSpots ?? 0} Trees Planted
+                </div>
+              </div>
+
+              <div
+                style={{
+                  height: 430,
+                  borderRadius: 16,
+                  overflow: 'hidden',
+                  border: '2px solid #34d399',
+                  position: 'relative'
+                }}
+              >
+                <MapContainer
+                  center={center}
+                  zoom={13}
+                  style={{ height: '100%', width: '100%' }}
+                  scrollWheelZoom={false}
+                >
+                  <TileLayer
+                    url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                    attribution="&copy; OpenStreetMap contributors"
+                  />
+                  {bounds && <FitBounds bounds={bounds} />}
+                  {polygonCoords.length > 0 && (
+                    <Polygon
+                      positions={polygonCoords}
+                      pathOptions={{
+                        color: zoneColor,
+                        fillColor: zoneColor,
+                        fillOpacity: 0.24,
+                        weight: 4,
+                        dashArray: '8 5'
+                      }}
+                    >
+                      <Popup>{buildZonePopup(selectedZone)}</Popup>
+                    </Polygon>
+                  )}
+
+                  {plantingPoints.map((point) => (
+                    <CircleMarker
+                      key={point.id}
+                      center={[point.lat, point.lng]}
+                      radius={6}
+                      pathOptions={{
+                        color: '#047857',
+                        fillColor: '#10b981',
+                        fillOpacity: 0.95,
+                        weight: 2
+                      }}
+                    >
+                      <Popup>
+                        <div>
+                          <strong>Planting Spot</strong>
+                          <div>Zone: {selectedZone?.zone_id}</div>
+                          <div>Latitude: {point.lat.toFixed(6)}</div>
+                          <div>Longitude: {point.lng.toFixed(6)}</div>
+                        </div>
+                      </Popup>
+                    </CircleMarker>
+                  ))}
+                </MapContainer>
+
+                <button
+                  type="button"
+                  onClick={() => setShowCoordinatesModal(true)}
+                  style={{
+                    position: 'absolute',
+                    right: 16,
+                    bottom: 16,
+                    zIndex: 1000,
+                    border: 'none',
+                    borderRadius: 999,
+                    padding: '10px 18px',
+                    background: '#10b981',
+                    color: '#ffffff',
+                    fontWeight: 700,
+                    fontSize: 14,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    boxShadow: '0 8px 20px rgba(16,185,129,0.22)',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <AimOutlined />
+                  Coordinates
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </Card>
+
+      <Modal
+        title="Tree Planting Coordinates"
+        open={showCoordinatesModal}
+        onCancel={() => setShowCoordinatesModal(false)}
+        footer={[
+          <Button key="copy" type="primary" onClick={handleCopyCoordinates}>
+            Copy Coordinates
+          </Button>
+        ]}
+        width={700}
       >
-        {!simulated ? (
-           <Alert message="No planting coordinates available yet. Run simulation first." type="warning" showIcon style={{ borderRadius: 12, border: 'none' }} />
-        ) : (
-           <>
-             <Alert 
-               message={<Text strong>Generated Target Zones</Text>} 
-               description="These exact latitude and longitude points specify the maximal cooling impact locations for intervention."
-               type="info"
-               showIcon
-               style={{ marginBottom: 20, borderRadius: 12, border: 'none', background: '#eff6ff' }}
-             />
-             <Card bodyStyle={{ padding: 0 }} style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid #e2e8f0' }}>
-               <Table 
-                 dataSource={simulatePoints}
-                 pagination={false}
-                 size="middle"
-                 rowKey="id"
-                 columns={[
-                   { title: 'Tree ID', dataIndex: 'id', render: (val) => <Text strong>{val}</Text> },
-                   { title: 'Latitude', dataIndex: 'lat', render: (val) => <Text type="secondary">{val}</Text> },
-                   { title: 'Longitude', dataIndex: 'lng', render: (val) => <Text type="secondary">{val}</Text> }
-                 ]}
-               />
-             </Card>
-           </>
-        )}
-      </Drawer>
-    </Card>
+        <div style={{ maxHeight: 420, overflowY: 'auto' }}>
+          {plantingPoints.length > 0 ? (
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={{ textAlign: 'left', padding: '10px', borderBottom: '1px solid #e5e7eb' }}>Spot</th>
+                  <th style={{ textAlign: 'left', padding: '10px', borderBottom: '1px solid #e5e7eb' }}>Latitude</th>
+                  <th style={{ textAlign: 'left', padding: '10px', borderBottom: '1px solid #e5e7eb' }}>Longitude</th>
+                </tr>
+              </thead>
+              <tbody>
+                {plantingPoints.map((point, index) => (
+                  <tr key={point.id}>
+                    <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9', fontWeight: 600 }}>
+                      Tree {index + 1}
+                    </td>
+                    <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>
+                      {point.lat.toFixed(6)}
+                    </td>
+                    <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>
+                      {point.lng.toFixed(6)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div style={{ padding: '20px 0', color: '#64748b', fontWeight: 500 }}>
+              No planting coordinates available. Run simulation first.
+            </div>
+          )}
+        </div>
+      </Modal>
+    </>
   );
 }
